@@ -33,7 +33,7 @@ button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outl
 /* 提词器 */
 #prompter{position:fixed;left:0;right:0;top:0;z-index:3;
   height:calc(env(safe-area-inset-top,0px) + 30vh);
-  padding:calc(env(safe-area-inset-top,0px) + 6px) 18px 0 18px;overflow:hidden;
+  padding:calc(env(safe-area-inset-top,0px) + 6px) 18px 0 18px;overflow:hidden;touch-action:none;
   -webkit-mask-image:linear-gradient(#000 0,#000 78%,transparent 100%);mask-image:linear-gradient(#000 0,#000 78%,transparent 100%)}
 #prompterText{white-space:pre-wrap;font-weight:600;line-height:1.35;will-change:transform;
   color:var(--ptext,rgba(0,0,0,.86));text-align:center;padding-top:2vh;padding-bottom:30vh}
@@ -137,7 +137,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 <div id="light"></div>
 
 <div id="prompter" hidden><div id="prompterText"></div></div>
-<div id="pState" hidden>已暂停 · 点字幕继续</div>
+<div id="pState" hidden>已暂停 · 点字幕继续 · 上下拖动调位置</div>
 
 <div id="pip" hidden>
   <video id="cam" playsinline autoplay muted></video>
@@ -304,33 +304,45 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   light.addEventListener('click',()=>show(openSheet?null:panel));
   window.addEventListener('resize',()=>{ syncPanelH(); clampPip(); fitPrompter(); });
 
-  /* ---------- 小画面：长按拖动 ---------- */
-  let press=null;
-  pip.addEventListener('contextmenu',e=>e.preventDefault());
-  pip.addEventListener('pointerdown',e=>{
+  /* ---------- 小画面：按住拖动 ---------- */
+  let drag=null;
+  function dragStart(x,y){
     const r=pip.getBoundingClientRect();
-    press={x:e.clientX,y:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,lifted:false,id:e.pointerId};
-    try{ pip.setPointerCapture(e.pointerId); }catch(_){}
-    press.t=setTimeout(()=>{ if(!press) return; press.lifted=true; pip.classList.add('lifted'); haptic(); },380);
-  });
-  pip.addEventListener('pointermove',e=>{
-    if(!press) return;
-    if(!press.lifted){
-      if(Math.hypot(e.clientX-press.x,e.clientY-press.y)>10){ clearTimeout(press.t); press=null; }
-      return;
-    }
-    e.preventDefault();
-    place(e.clientX-press.dx,e.clientY-press.dy);
-  });
-  function endPress(){
-    if(!press) return;
-    clearTimeout(press.t);
-    if(press.lifted){ pip.classList.remove('lifted'); savePip(); }
-    else hint('按住画面拖动');
-    press=null;
+    drag={x0:x,y0:y,dx:x-r.left,dy:y-r.top,active:false};
+    drag.t=setTimeout(()=>{ if(drag&&!drag.active) dragActivate(); },280);
   }
-  pip.addEventListener('pointerup',endPress);
-  pip.addEventListener('pointercancel',endPress);
+  function dragActivate(){ drag.active=true; pip.classList.add('lifted'); haptic(); }
+  function dragMove(x,y){
+    if(!drag) return;
+    if(!drag.active){ if(Math.hypot(x-drag.x0,y-drag.y0)>6) dragActivate(); else return; }
+    place(x-drag.dx,y-drag.dy);
+  }
+  function dragEnd(){
+    if(!drag) return;
+    clearTimeout(drag.t);
+    if(drag.active){ pip.classList.remove('lifted'); settlePip(); savePip(); }
+    drag=null;
+  }
+  pip.addEventListener('contextmenu',e=>e.preventDefault());
+  pip.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; dragStart(t.clientX,t.clientY); },{passive:false});
+  pip.addEventListener('touchmove',e=>{ e.preventDefault(); const t=e.touches[0]; dragMove(t.clientX,t.clientY); },{passive:false});
+  pip.addEventListener('touchend',dragEnd);
+  pip.addEventListener('touchcancel',dragEnd);
+  pip.addEventListener('mousedown',e=>{
+    dragStart(e.clientX,e.clientY);
+    const mm=ev=>dragMove(ev.clientX,ev.clientY);
+    const mu=()=>{ dragEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
+    addEventListener('mousemove',mm); addEventListener('mouseup',mu);
+  });
+  // 松手时如果挡住提词器太多，就把画面放到字幕下面
+  function settlePip(){
+    if(prompter.hidden) return;
+    const r=pip.getBoundingClientRect(), band=prompter.getBoundingClientRect();
+    if(r.top<band.bottom-20&&r.bottom>band.top){
+      const space=Math.max(r.left,innerWidth-r.right);
+      if(space<innerWidth*0.5){ place(r.left,band.bottom+8); }
+    }
+  }
 
   function place(x,y){
     const w=pip.offsetWidth, h=pip.offsetHeight;
@@ -378,21 +390,39 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     }
     cam.srcObject=stream;
     try{ await cam.play(); }catch(e){}
+    store.set('lastMode','cam');
     camUI(); restorePip();
     return true;
   }
   function stopCam(){
     if(recorder&&recorder.state==='recording'){ hint('先停止录制'); return; }
     if(stream) stream.getTracks().forEach(t=>t.stop());
-    stream=null; cam.srcObject=null; camUI(); hint('只用灯模式');
+    stream=null; cam.srcObject=null; store.set('lastMode','light'); camUI(); hint('只用灯模式');
   }
   $('camBtn').onclick=async()=>{ if(stream) stopCam(); else { const ok=await startCam(); if(!ok) hint('没拿到相机权限'); } };
 
   async function keepAwake(){ try{ if('wakeLock' in navigator) wakeLock=await navigator.wakeLock.request('screen'); }catch(e){} }
-  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') keepAwake(); });
+  document.addEventListener('visibilitychange',async()=>{
+    if(document.visibilityState!=='visible') return;
+    keepAwake();
+    // 切回来时如果系统把相机断了，自动重新接上
+    if(stream&&stream.getVideoTracks().some(t=>t.readyState==='ended')){ stream=null; await startCam(); }
+  });
 
   $('goBtn').onclick=async()=>{ if(await startCam()){ $('start').hidden=true; keepAwake(); syncPanelH(); } };
-  $('lightOnlyBtn').onclick=()=>{ $('start').hidden=true; keepAwake(); camUI(); };
+  $('lightOnlyBtn').onclick=()=>{ store.set('lastMode','light'); $('start').hidden=true; keepAwake(); camUI(); };
+
+  // 用过一次以后，打开直接进上次的模式，不再停在开始页
+  (async()=>{
+    const last=store.get('lastMode',null);
+    if(last==='light'){ $('start').hidden=true; keepAwake(); camUI(); return; }
+    let granted=false;
+    try{ const p=await navigator.permissions.query({name:'camera'}); granted=p.state==='granted'; }catch(e){}
+    if(last==='cam'||granted){
+      $('start').hidden=true; keepAwake();
+      if(!(await startCam())) $('start').hidden=false;
+    }
+  })();
 
   /* ---------- 提词器 ---------- */
   const prompter=$('prompter'), pText=$('prompterText'), pInput=$('promptInput');
@@ -422,18 +452,36 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     if(pip.hidden) return;
     const r=pip.getBoundingClientRect(), band=prompter.getBoundingClientRect();
     if(r.top<band.bottom-20&&r.bottom>band.top){
-      if(r.left+r.width/2>innerWidth/2) prompter.style.paddingRight=(innerWidth-r.left+8)+'px';
+      // 字幕放到画面旁边空间大的那一边
+      if(r.left>=innerWidth-r.right) prompter.style.paddingRight=(innerWidth-r.left+8)+'px';
       else prompter.style.paddingLeft=(r.right+8)+'px';
     }
   }
+  const pMax=()=>Math.max(0,pText.scrollHeight-prompter.clientHeight*0.4);
   function tick(ts){
     if(!pPlaying) return;
+    if(pt&&pt.moved){ pLast=ts; requestAnimationFrame(tick); return; }  // 手在拖的时候不自动走
     const dt=pLast?(ts-pLast)/1000:0; pLast=ts;
     pOffset+=(+$('pSpeed').value)*dt;
-    const max=pText.scrollHeight-prompter.clientHeight*0.4;
-    if(pOffset>=max){ pOffset=max; setPlay(false); }
+    if(pOffset>=pMax()){ pOffset=pMax(); setPlay(false); }
     pText.style.transform=`translateY(${-pOffset}px)`;
     requestAnimationFrame(tick);
+  }
+  // 手指上下拖动字幕
+  let pt=null;
+  function pStart(y){ pt={y0:y,off0:pOffset,moved:false}; }
+  function pMove(y){
+    if(!pt) return;
+    const d=y-pt.y0;
+    if(Math.abs(d)>6) pt.moved=true;
+    if(!pt.moved) return;
+    pOffset=Math.max(0,Math.min(pMax(),pt.off0-d));
+    pText.style.transform=`translateY(${-pOffset}px)`;
+  }
+  function pEnd(){
+    if(!pt) return;
+    const moved=pt.moved; pt=null;
+    if(!moved) setPlay(!pPlaying); else updState();
   }
   function setPlay(on){
     pPlaying=on; pLast=0;
@@ -451,7 +499,16 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   $('pAuto').addEventListener('change',()=>store.set('pAuto',$('pAuto').checked));
   $('pReset').onclick=resetPrompter;
   $('pPlay').onclick=()=>{ if(!pPlaying&&pOffset>=pText.scrollHeight-prompter.clientHeight*0.4-1) resetPrompter(); setPlay(!pPlaying); if(pPlaying) show(null); };
-  prompter.addEventListener('click',e=>{ e.stopPropagation(); setPlay(!pPlaying); });
+  prompter.addEventListener('touchstart',e=>{ e.preventDefault(); pStart(e.touches[0].clientY); },{passive:false});
+  prompter.addEventListener('touchmove',e=>{ e.preventDefault(); pMove(e.touches[0].clientY); },{passive:false});
+  prompter.addEventListener('touchend',pEnd);
+  prompter.addEventListener('touchcancel',pEnd);
+  prompter.addEventListener('mousedown',e=>{
+    pStart(e.clientY);
+    const mm=ev=>pMove(ev.clientY);
+    const mu=()=>{ pEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
+    addEventListener('mousemove',mm); addEventListener('mouseup',mu);
+  });
   renderPrompter();
 
   /* ---------- 录制 ---------- */
