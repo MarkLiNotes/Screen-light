@@ -18,57 +18,90 @@
   --chip:rgba(255,255,255,.1);
   --rec:#ff3b30;
   --accent:#ffc35a;
+  --focus:#ffd60a;
+  --lightColor:#fff;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--fg);
   font:15px/1.3 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
-  touch-action:manipulation;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+  touch-action:manipulation;user-select:none;-webkit-user-select:none;overscroll-behavior:none;-webkit-touch-callout:none}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 button:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 /* 整个屏幕就是灯 */
-#light{position:fixed;inset:0;background:#fff}
+#light{position:fixed;inset:0;background:var(--lightColor)}
+
+/* 原始相机画面，藏起来只用来取帧 */
+#cam{position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
+
+/* 处理后的画面，在小窗和全屏之间移动 */
+#view{position:absolute;transform:scaleX(-1);pointer-events:none;display:block}
+
+/* 全屏画面（双击小窗后） */
+#full{position:fixed;inset:0;z-index:2;background:#000;overflow:hidden;touch-action:none}
+
+/* 对焦测光框 */
+#focus{position:fixed;z-index:4;width:84px;height:84px;margin:-42px 0 0 -42px;border:1.5px solid var(--focus);
+  pointer-events:none;opacity:0;transition:opacity .3s}
+#focus.show{opacity:1;transition:opacity .05s}
+#focus .rail{position:absolute;right:-26px;top:-14px;bottom:-14px;width:1px;background:rgba(255,214,10,.55)}
+#focus .sun{position:absolute;right:-37px;width:22px;height:22px;margin-top:-11px;border-radius:50%;
+  display:grid;place-items:center;color:var(--focus);font-size:17px;line-height:1}
 
 /* 提词器 */
 #prompter{position:fixed;left:0;right:0;top:0;z-index:3;
   height:calc(env(safe-area-inset-top,0px) + 30vh);
-  padding:calc(env(safe-area-inset-top,0px) + 6px) 18px 0 18px;overflow:hidden;touch-action:none;
-  -webkit-mask-image:linear-gradient(#000 0,#000 78%,transparent 100%);mask-image:linear-gradient(#000 0,#000 78%,transparent 100%)}
+  padding:calc(env(safe-area-inset-top,0px) + 6px) 18px 0 18px;overflow:hidden}
+#prompter::after{content:"";position:absolute;left:0;right:0;bottom:0;height:24%;pointer-events:none;
+  background:linear-gradient(to bottom,transparent,var(--lightColor));z-index:1}
 #prompterText{white-space:pre-wrap;font-weight:600;line-height:1.35;will-change:transform;
   color:var(--ptext,rgba(0,0,0,.86));text-align:center;padding-top:2vh;padding-bottom:30vh}
-#pState{position:fixed;z-index:4;left:max(12px,env(safe-area-inset-left,0px));
-  top:calc(env(safe-area-inset-top,0px) + 30vh + 4px);font-size:12px;padding:4px 9px;border-radius:99px;
-  background:rgba(0,0,0,.5);color:#fff;pointer-events:none}
+#pTouch{position:absolute;inset:0;z-index:2;touch-action:none}
+#pState{position:fixed;z-index:4;left:50%;transform:translateX(-50%);
+  top:calc(env(safe-area-inset-top,0px) + 30vh + 4px);font-size:12px;padding:4px 10px;border-radius:99px;
+  background:rgba(0,0,0,.55);color:#fff;pointer-events:none;white-space:nowrap}
 
-/* 小画面 */
+/* 小窗 */
 #pip{position:fixed;top:calc(env(safe-area-inset-top,0px) + 12px);right:calc(env(safe-area-inset-right,0px) + 12px);
   width:27vw;max-width:170px;aspect-ratio:3/4;border-radius:14px;overflow:hidden;background:#111;
   box-shadow:0 6px 22px rgba(0,0,0,.35);z-index:5;touch-action:none;
-  -webkit-touch-callout:none;transition:width .2s,transform .15s,box-shadow .15s}
+  transition:width .2s,transform .15s,box-shadow .15s}
 #pip.big{width:46vw;max-width:300px}
-#pip.lifted{transform:scale(1.07);box-shadow:0 14px 40px rgba(0,0,0,.5);transition:width .2s,transform .15s,box-shadow .15s}
-#pip video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);display:block;pointer-events:none}
-#pip.nomirror video{transform:none}
-#recBadge{position:absolute;left:8px;top:8px;display:flex;align-items:center;gap:5px;
-  background:rgba(0,0,0,.55);padding:3px 7px;border-radius:99px;font-size:12px;font-variant-numeric:tabular-nums}
-#recBadge i{width:7px;height:7px;border-radius:50%;background:var(--rec);animation:blink 1s infinite}
+#pip.lifted{transform:scale(1.07);box-shadow:0 14px 40px rgba(0,0,0,.5)}
+body.swapped #pip{background:var(--lightColor);border:2px solid rgba(255,255,255,.85)}
+body.swapped #pip::after{content:"双击切回";position:absolute;left:0;right:0;bottom:8px;text-align:center;
+  font-size:11px;color:rgba(0,0,0,.55)}
+
+/* 录制计时 */
+#recBadge{position:fixed;z-index:7;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 10px);
+  display:flex;align-items:center;gap:6px;background:rgba(0,0,0,.6);color:#fff;padding:4px 10px;border-radius:99px;
+  font-size:13px;font-variant-numeric:tabular-nums;pointer-events:none}
+#recBadge i{width:8px;height:8px;border-radius:50%;background:var(--rec);animation:blink 1s infinite}
 @keyframes blink{50%{opacity:.25}}
 
-/* 录制按钮 */
-#recBtn{position:fixed;left:50%;transform:translateX(-50%);z-index:6;
-  bottom:calc(env(safe-area-inset-bottom,0px) + 18px);
-  width:68px;height:68px;border-radius:50%;border:4px solid rgba(0,0,0,.55);background:rgba(255,255,255,.35);
-  display:grid;place-items:center;transition:bottom .25s}
-#recBtn span{width:44px;height:44px;border-radius:50%;background:var(--rec);transition:all .2s}
-#recBtn.on span{width:24px;height:24px;border-radius:6px}
-body.sheet-open #recBtn{bottom:calc(env(safe-area-inset-bottom,0px) + var(--panelH,300px) + 14px)}
+/* 底部：曝光、模式、快门 */
+#bottom{position:fixed;left:0;right:0;z-index:6;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);
+  display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;transition:bottom .25s}
+#bottom>*{pointer-events:auto}
+body.sheet-open #bottom{bottom:calc(env(safe-area-inset-bottom,0px) + var(--panelH,300px) + 12px)}
+#evChip{font-size:12px;padding:5px 11px;border-radius:99px;background:rgba(0,0,0,.6);color:var(--focus);font-variant-numeric:tabular-nums}
+#modeSw{display:flex;gap:2px;background:rgba(0,0,0,.45);border-radius:99px;padding:3px}
+#modeSw button{font-size:13px;padding:5px 14px;border-radius:99px;color:rgba(255,255,255,.75)}
+#modeSw button.on{background:rgba(255,255,255,.92);color:#000;font-weight:600}
+#shutter{width:70px;height:70px;border-radius:50%;border:4px solid rgba(0,0,0,.55);background:rgba(255,255,255,.35);
+  display:grid;place-items:center}
+#shutter span{width:46px;height:46px;border-radius:50%;background:var(--rec);transition:all .2s}
+#shutter.photo span{background:#fff;box-shadow:inset 0 0 0 2px rgba(0,0,0,.15)}
+#shutter.on span{width:24px;height:24px;border-radius:6px}
+#flash{position:fixed;inset:0;z-index:9;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+#flash.on{opacity:.9;transition:none}
 
 /* 面板 */
 .sheet{position:fixed;left:0;right:0;bottom:0;z-index:8;background:var(--panel);
   -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
   border-radius:20px 20px 0 0;border-top:1px solid var(--line);
-  padding:14px max(16px,env(safe-area-inset-left,0px)) calc(env(safe-area-inset-bottom,0px) + 14px) max(16px,env(safe-area-inset-right,0px));
+  padding:14px max(16px,env(safe-area-inset-left,0px)) calc(env(safe-area-inset-bottom,0px) + 10px) max(16px,env(safe-area-inset-right,0px));
   display:grid;gap:12px;transform:translateY(105%);transition:transform .25s}
 .sheet.open{transform:none}
 .seg{display:grid;grid-template-columns:1fr 1fr;background:var(--chip);border-radius:10px;padding:3px}
@@ -89,12 +122,13 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 #tint{--track:linear-gradient(90deg,#e46ce0,#fff,#6cd97a)}
 #hue{--track:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
 #sat{--track:linear-gradient(90deg,#fff,var(--hueColor,#f00))}
-.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.tools button{padding:9px 0;border-radius:10px;background:var(--chip);font-size:12.5px;white-space:nowrap}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tools button{padding:9px 0;border-radius:10px;background:var(--chip);font-size:13px;white-space:nowrap}
 .tools button.on{background:rgba(255,195,90,.22);color:var(--accent)}
+.ver{font-size:11px;color:var(--dim);text-align:center;margin-top:-4px}
 
 /* 提词器设置 */
-#promptSheet textarea{width:100%;height:28vh;resize:none;border-radius:12px;border:1px solid var(--line);
+#promptSheet textarea{width:100%;height:26vh;resize:none;border-radius:12px;border:1px solid var(--line);
   background:rgba(0,0,0,.35);color:var(--fg);font:15px/1.5 inherit;padding:10px 12px;-webkit-user-select:text;user-select:text}
 .sheetHead{display:flex;justify-content:space-between;align-items:center}
 .sheetHead b{font-size:16px}
@@ -118,15 +152,16 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 #lightOnlyBtn{padding:10px 20px;border-radius:99px;color:var(--fg);border:1px solid var(--line);font-size:14px;min-width:200px}
 #err{color:#ff8a80;margin:14px auto 0;font-size:13px;max-width:34ch}
 
-/* 录完预览 */
-#review{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.92);display:flex;flex-direction:column;
+/* 拍完预览 */
+#review{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.94);display:flex;flex-direction:column;
   padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));gap:12px}
-#review video{flex:1;min-height:0;width:100%;object-fit:contain;border-radius:12px;background:#000}
+#review video,#review img{flex:1;min-height:0;width:100%;object-fit:contain;border-radius:12px;background:#000}
 #review .acts{display:flex;gap:10px}
-#review .acts button,#review .acts a{flex:1;padding:13px 0;border-radius:12px;text-align:center;text-decoration:none;color:var(--fg);background:rgba(255,255,255,.12);font-size:15px}
+#review .acts button{flex:1;padding:13px 0;border-radius:12px;text-align:center;color:var(--fg);background:rgba(255,255,255,.12);font-size:15px}
 #review .acts .primary{background:#fff;color:#000;font-weight:600}
-#hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;background:rgba(0,0,0,.65);color:#fff;
-  padding:8px 14px;border-radius:99px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .4s;white-space:nowrap}
+#hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;background:rgba(0,0,0,.7);color:#fff;
+  padding:8px 14px;border-radius:99px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .4s;
+  max-width:calc(100vw - 32px);text-align:center}
 #hint.show{opacity:1}
 #hapticLbl{position:fixed;left:-100px;top:-100px;opacity:0;pointer-events:none}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -135,16 +170,27 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 <body class="sheet-open">
 
 <div id="light"></div>
+<video id="cam" playsinline autoplay muted></video>
 
-<div id="prompter" hidden><div id="prompterText"></div></div>
+<div id="full" hidden></div>
+<div id="focus"><div class="rail"></div><div class="sun">☀</div></div>
+
+<div id="prompter" hidden><div id="prompterText"></div><div id="pTouch"></div></div>
 <div id="pState" hidden>已暂停 · 点字幕继续 · 上下拖动调位置</div>
 
-<div id="pip" hidden>
-  <video id="cam" playsinline autoplay muted></video>
-  <div id="recBadge" hidden><i></i><span id="recTime">00:00</span></div>
-</div>
+<div id="pip" hidden><canvas id="view"></canvas></div>
 
-<button id="recBtn" aria-label="录制" hidden><span></span></button>
+<div id="recBadge" hidden><i></i><span id="recTime">00:00</span></div>
+
+<div id="bottom" hidden>
+  <button id="evChip" hidden>☀ 0.0 · 点一下归零</button>
+  <div id="modeSw">
+    <button data-m="video" class="on">视频</button>
+    <button data-m="photo">照片</button>
+  </div>
+  <button id="shutter" aria-label="拍摄"><span></span></button>
+</div>
+<div id="flash"></div>
 
 <!-- 灯光面板 -->
 <div id="panel" class="sheet open">
@@ -176,10 +222,10 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   <div class="tools">
     <button id="promptBtn">提词器</button>
     <button id="sizeBtn">放大画面</button>
-    <button id="mirrorBtn">镜像 开</button>
     <button id="camBtn">关闭画面</button>
     <button id="hideBtn">隐藏面板</button>
   </div>
+  <div class="ver">双击小窗切换全屏画面 · v4</div>
 </div>
 
 <!-- 提词器设置 -->
@@ -200,10 +246,10 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 <label id="hapticLbl"><input type="checkbox" switch id="hapticSw"></label>
 
 <div id="review" hidden>
-  <video id="playback" playsinline controls></video>
+  <video id="playback" playsinline controls hidden></video>
+  <img id="photoView" alt="刚拍的照片" hidden>
   <div class="acts">
     <button id="discardBtn">删除</button>
-    <a id="dlLink" download="selfie.mp4">下载</a>
     <button id="shareBtn" class="primary">保存 / 分享</button>
   </div>
 </div>
@@ -225,28 +271,31 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 <script>
 (function(){
   const $=id=>document.getElementById(id);
-  const light=$('light'), cam=$('cam'), pip=$('pip'), panel=$('panel'), pSheet=$('promptSheet');
+  const root=document.documentElement;
+  const light=$('light'), cam=$('cam'), pip=$('pip'), full=$('full'), view=$('view');
+  const panel=$('panel'), pSheet=$('promptSheet');
   const kelvin=$('kelvin'), tint=$('tint'), level=$('level'), hue=$('hue'), sat=$('sat');
-  let stream=null, recorder=null, chunks=[], recStart=0, timer=null, wakeLock=null, lastBlob=null, lastUrl=null, lastExt='mp4';
-  let mode='cct';
+  const S={swapped:false, ev:0, shoot:'video', mode:'cct'};
+  let stream=null, track=null, caps={}, hwEV=null, hwPOI=false;
+  let recorder=null, chunks=[], recStart=0, timer=null, wakeLock=null, lastBlob=null, lastUrl=null, lastName='';
 
   const store={
     get(k,d){ try{ const v=localStorage.getItem('slp_'+k); return v==null?d:JSON.parse(v); }catch(e){ return d; } },
     set(k,v){ try{ localStorage.setItem('slp_'+k,JSON.stringify(v)); }catch(e){} }
   };
-
-  function hint(t){ const h=$('hint'); h.textContent=t; h.classList.add('show'); clearTimeout(hint._t); hint._t=setTimeout(()=>h.classList.remove('show'),1600); }
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function hint(t,ms){ const h=$('hint'); h.textContent=t; h.classList.add('show'); clearTimeout(hint._t); hint._t=setTimeout(()=>h.classList.remove('show'),ms||1700); }
   function haptic(){
     try{ if(navigator.vibrate&&navigator.vibrate(15)) return; }catch(e){}
-    try{ $('hapticLbl').click(); }catch(e){}   // iOS 18+ Safari 的震动小技巧
+    try{ $('hapticLbl').click(); }catch(e){}
   }
 
-  /* ---------- 灯光颜色 ---------- */
+  /* ================= 灯光颜色 ================= */
   function k2rgb(k){
     const t=k/100; let r,g,b;
     if(t<=66){ r=255; g=99.4708025861*Math.log(t)-161.1195681661; b=t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307; }
     else { r=329.698727446*Math.pow(t-60,-0.1332047592); g=288.1221695283*Math.pow(t-60,-0.0755148492); b=255; }
-    return [r,g,b].map(v=>Math.max(0,Math.min(255,v)));
+    return [r,g,b].map(v=>clamp(v,0,255));
   }
   function hsv2rgb(h,s,v){
     const f=n=>{ const k=(n+h/60)%6; return v-v*s*Math.max(0,Math.min(k,4-k,1)); };
@@ -254,11 +303,10 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   }
   function apply(){
     const l=+level.value/100; let rgb;
-    if(mode==='cct'){
+    if(S.mode==='cct'){
       const k=+kelvin.value, t=+tint.value/100;
       let [r,g,b]=k2rgb(k);
-      if(t>0){ r*=1-0.3*t; b*=1-0.3*t; }    // 加绿
-      else if(t<0){ g*=1+0.3*t; }            // 加品红
+      if(t>0){ r*=1-0.3*t; b*=1-0.3*t; } else if(t<0){ g*=1+0.3*t; }
       const m=Math.max(r,g,b)||1;
       rgb=[r,g,b].map(v=>v/m*255*l);
       $('kOut').textContent=k+'K';
@@ -271,28 +319,27 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
       sat.style.setProperty('--hueColor',`hsl(${h},100%,50%)`);
     }
     rgb=rgb.map(Math.round);
-    light.style.background=`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+    root.style.setProperty('--lightColor',`rgb(${rgb[0]},${rgb[1]},${rgb[2]})`);
     $('lOut').textContent=Math.round(l*100)+'%';
-    // 提词文字颜色跟着灯的亮度自动黑/白
     const lum=(0.2126*rgb[0]+0.7152*rgb[1]+0.0722*rgb[2])/255;
-    document.documentElement.style.setProperty('--ptext',lum>0.45?'rgba(0,0,0,.86)':'rgba(255,255,255,.92)');
-    store.set('light',{mode,k:+kelvin.value,t:+tint.value,h:+hue.value,s:+sat.value,l:+level.value});
+    root.style.setProperty('--ptext',lum>0.45?'rgba(0,0,0,.86)':'rgba(255,255,255,.92)');
+    store.set('light',{mode:S.mode,k:+kelvin.value,t:+tint.value,h:+hue.value,s:+sat.value,l:+level.value});
   }
   function setMode(m){
-    mode=m;
+    S.mode=m;
     document.querySelectorAll('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
     $('cctBox').style.display=m==='cct'?'grid':'none';
     $('rgbBox').style.display=m==='rgb'?'grid':'none';
     apply(); syncPanelH();
   }
   const sl=store.get('light',null);
-  if(sl){ kelvin.value=sl.k??5600; tint.value=sl.t??0; hue.value=sl.h??210; sat.value=sl.s??100; level.value=sl.l??100; mode=sl.mode||'cct'; }
+  if(sl){ kelvin.value=sl.k??5600; tint.value=sl.t??0; hue.value=sl.h??210; sat.value=sl.s??100; level.value=sl.l??100; S.mode=sl.mode||'cct'; }
   [kelvin,tint,level,hue,sat].forEach(el=>el.addEventListener('input',apply));
   tint.addEventListener('dblclick',()=>{ tint.value=0; apply(); });
   $('presets').addEventListener('click',e=>{ const k=e.target.dataset&&e.target.dataset.k; if(k){ kelvin.value=k; apply(); } });
   $('modeSeg').addEventListener('click',e=>{ const m=e.target.dataset&&e.target.dataset.m; if(m) setMode(m); });
 
-  /* ---------- 面板 ---------- */
+  /* ================= 面板 ================= */
   let openSheet=panel;
   function syncPanelH(){
     const open=document.querySelector('.sheet.open');
@@ -301,15 +348,151 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   }
   function show(sheet){ [panel,pSheet].forEach(s=>s.classList.toggle('open',s===sheet)); openSheet=sheet; syncPanelH(); }
   $('hideBtn').onclick=()=>{ show(null); hint('点屏幕任意处打开面板'); };
-  light.addEventListener('click',()=>show(openSheet?null:panel));
+  light.addEventListener('click',()=>{ if(!S.swapped) show(openSheet?null:panel); });
   window.addEventListener('resize',()=>{ syncPanelH(); clampPip(); fitPrompter(); });
 
-  /* ---------- 小画面：按住拖动 ---------- */
-  let drag=null;
+  /* ================= 画面处理（曝光） ================= */
+  let gl=null, ctx2d=null, glTex=null, uGain=null;
+  (function initGL(){
+    try{
+      gl=view.getContext('webgl',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false});
+    }catch(e){ gl=null; }
+    if(!gl){ ctx2d=view.getContext('2d'); return; }
+    const vs='attribute vec2 p;varying vec2 uv;void main(){uv=vec2((p.x+1.)*.5,1.-(p.y+1.)*.5);gl_Position=vec4(p,0.,1.);}';
+    const fs='precision mediump float;uniform sampler2D t;uniform float g;varying vec2 uv;'+
+      'void main(){vec3 c=texture2D(t,uv).rgb;vec3 l=pow(c,vec3(2.2))*g;'+
+      'vec3 s=.82+.18*(1.-exp(-(l-.82)/.18));l=mix(l,s,step(.82,l));'+
+      'gl_FragColor=vec4(pow(clamp(l,0.,1.),vec3(1./2.2)),1.);}';
+    const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); return s; };
+    const pr=gl.createProgram();
+    gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr);
+    if(!gl.getProgramParameter(pr,gl.LINK_STATUS)){ gl=null; ctx2d=view.getContext('2d'); return; }
+    gl.useProgram(pr);
+    const buf=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+    const loc=gl.getAttribLocation(pr,'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+    glTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,glTex);
+    [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE));
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    uGain=gl.getUniformLocation(pr,'g');
+  })();
+  const gain=()=>hwEV?1:Math.pow(2,S.ev);
+
+  function draw(){
+    const vw=cam.videoWidth, vh=cam.videoHeight;
+    if(!vw||cam.readyState<2) return false;
+    if(view.width!==vw||view.height!==vh){ view.width=vw; view.height=vh; if(gl) gl.viewport(0,0,vw,vh); }
+    if(gl){
+      gl.bindTexture(gl.TEXTURE_2D,glTex);
+      gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,cam);
+      gl.uniform1f(uGain,gain());
+      gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+    } else {
+      if('filter' in ctx2d) ctx2d.filter=`brightness(${gain()})`;
+      ctx2d.drawImage(cam,0,0,vw,vh);
+    }
+    return true;
+  }
+  function layoutView(){
+    const vw=view.width, vh=view.height; if(!vw) return;
+    const box=S.swapped?full:pip;
+    if(view.parentNode!==box) box.appendChild(view);
+    const cw=box.clientWidth, ch=box.clientHeight; if(!cw) return;
+    const s=Math.max(cw/vw,ch/vh), w=vw*s, h=vh*s;
+    const st=`width:${w}px;height:${h}px;left:${(cw-w)/2}px;top:${(ch-h)/2}px`;
+    if(view._st!==st){ view.style.cssText=st; view._st=st; }
+  }
+  let raf=0;
+  function loop(){
+    if(!stream){ raf=0; return; }
+    raf=requestAnimationFrame(loop);
+    if(draw()) layoutView();
+  }
+
+  /* ================= 曝光 & 测光 ================= */
+  function setEV(v,silent){
+    S.ev=Math.round(clamp(v,-2,2)*10)/10;
+    const chip=$('evChip');
+    chip.hidden=S.ev===0||!stream;
+    chip.textContent=`☀ ${S.ev>0?'+':''}${S.ev.toFixed(1)} · 点一下归零`;
+    $('focus').querySelector('.sun').style.top=(42-S.ev*24)+'px';
+    if(hwEV&&!silent){
+      const val=clamp(Math.round(S.ev/(hwEV.step||0.1))*(hwEV.step||0.1),hwEV.min,hwEV.max);
+      track.applyConstraints({advanced:[{exposureCompensation:val}]}).catch(()=>{});
+    }
+  }
+  $('evChip').onclick=()=>{ setEV(0); haptic(); };
+
+  const mc=document.createElement('canvas'); mc.width=mc.height=24;
+  const mctx=mc.getContext('2d',{willReadFrequently:true});
+  const lin=c=>Math.pow(c/255,2.2);
+  function meterEV(u,v){
+    const vw=cam.videoWidth, vh=cam.videoHeight; if(!vw) return 0;
+    const sz=Math.min(vw,vh)*0.18;
+    const sx=clamp(u*vw-sz/2,0,vw-sz), sy=clamp(v*vh-sz/2,0,vh-sz);
+    try{
+      mctx.drawImage(cam,sx,sy,sz,sz,0,0,24,24);
+      const d=mctx.getImageData(0,0,24,24).data; let sum=0;
+      for(let i=0;i<d.length;i+=4) sum+=0.2126*lin(d[i])+0.7152*lin(d[i+1])+0.0722*lin(d[i+2]);
+      const mean=sum/(d.length/4);
+      return clamp(Math.log2(0.2/Math.max(mean,0.003)),-2,2);
+    }catch(e){ return S.ev; }
+  }
+  async function hwPoint(u,v){
+    if(!track||!track.applyConstraints) return false;
+    const c={pointsOfInterest:[{x:u,y:v}]};
+    if(caps.focusMode&&caps.focusMode.includes('single-shot')) c.focusMode='single-shot';
+    if(caps.exposureMode&&caps.exposureMode.includes('single-shot')) c.exposureMode='single-shot';
+    try{ await track.applyConstraints({advanced:[c]}); const st=track.getSettings?track.getSettings():{}; return !!st.pointsOfInterest; }
+    catch(e){ return false; }
+  }
+
+  // 全屏画面上的手势：点 = 对焦测光，上下拖 = 曝光
+  const focusEl=$('focus'); let fHide=0, fx=innerWidth/2, fy=innerHeight/2;
+  function showFocus(x,y){
+    if(x!=null){ fx=x; fy=y; }
+    focusEl.style.left=fx+'px'; focusEl.style.top=fy+'px';
+    focusEl.classList.add('show'); clearTimeout(fHide);
+    fHide=setTimeout(()=>focusEl.classList.remove('show'),2200);
+  }
+  function viewUV(x,y){
+    const r=view.getBoundingClientRect();
+    const ud=clamp((x-r.left)/r.width,0,1), v=clamp((y-r.top)/r.height,0,1);
+    return {u:1-ud, v};   // 画面是镜像显示的
+  }
+  async function tapFocus(x,y){
+    showFocus(x,y); haptic();
+    const {u,v}=viewUV(x,y);
+    hwPOI=await hwPoint(u,v);
+    if(hwPOI){ if(!hwEV) setEV(0); }
+    else setEV(meterEV(u,v));
+    setEV(S.ev);
+  }
+  let ft=null;
+  function fStart(x,y){ ft={x,y,ev0:S.ev,moved:false}; }
+  function fMove(x,y){
+    if(!ft) return;
+    const dy=y-ft.y;
+    if(!ft.moved&&Math.abs(dy)>8){ ft.moved=true; showFocus(); }
+    if(ft.moved){ setEV(ft.ev0-dy/110); showFocus(); }
+  }
+  function fEnd(){ if(!ft) return; const t=ft; ft=null; if(!t.moved) tapFocus(t.x,t.y); }
+  full.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; fStart(t.clientX,t.clientY); },{passive:false});
+  full.addEventListener('touchmove',e=>{ e.preventDefault(); const t=e.touches[0]; fMove(t.clientX,t.clientY); },{passive:false});
+  full.addEventListener('touchend',fEnd); full.addEventListener('touchcancel',fEnd);
+  full.addEventListener('mousedown',e=>{
+    fStart(e.clientX,e.clientY);
+    const mm=ev=>fMove(ev.clientX,ev.clientY);
+    const mu=()=>{ fEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
+    addEventListener('mousemove',mm); addEventListener('mouseup',mu);
+  });
+
+  /* ================= 小窗：拖动 + 双击切换 ================= */
+  let drag=null, lastTap=0;
   function dragStart(x,y){
     const r=pip.getBoundingClientRect();
-    drag={x0:x,y0:y,dx:x-r.left,dy:y-r.top,active:false};
-    drag.t=setTimeout(()=>{ if(drag&&!drag.active) dragActivate(); },280);
+    drag={x0:x,y0:y,dx:x-r.left,dy:y-r.top,active:false,t0:Date.now()};
+    drag.t=setTimeout(()=>{ if(drag&&!drag.active) dragActivate(); },300);
   }
   function dragActivate(){ drag.active=true; pip.classList.add('lifted'); haptic(); }
   function dragMove(x,y){
@@ -320,58 +503,64 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   function dragEnd(){
     if(!drag) return;
     clearTimeout(drag.t);
-    if(drag.active){ pip.classList.remove('lifted'); settlePip(); savePip(); }
-    drag=null;
+    const d=drag; drag=null;
+    if(d.active){ pip.classList.remove('lifted'); settlePip(); savePip(); return; }
+    const now=Date.now();
+    if(now-d.t0<280){
+      if(now-lastTap<350){ lastTap=0; swap(); } else lastTap=now;
+    }
   }
   pip.addEventListener('contextmenu',e=>e.preventDefault());
   pip.addEventListener('touchstart',e=>{ e.preventDefault(); const t=e.touches[0]; dragStart(t.clientX,t.clientY); },{passive:false});
   pip.addEventListener('touchmove',e=>{ e.preventDefault(); const t=e.touches[0]; dragMove(t.clientX,t.clientY); },{passive:false});
-  pip.addEventListener('touchend',dragEnd);
-  pip.addEventListener('touchcancel',dragEnd);
+  pip.addEventListener('touchend',dragEnd); pip.addEventListener('touchcancel',dragEnd);
   pip.addEventListener('mousedown',e=>{
     dragStart(e.clientX,e.clientY);
     const mm=ev=>dragMove(ev.clientX,ev.clientY);
     const mu=()=>{ dragEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
     addEventListener('mousemove',mm); addEventListener('mouseup',mu);
   });
-  // 松手时如果挡住提词器太多，就把画面放到字幕下面
+
+  function place(x,y){
+    const w=pip.offsetWidth, h=pip.offsetHeight;
+    x=clamp(x,4,innerWidth-w-4); y=clamp(y,4,innerHeight-h-4);
+    pip.style.left=x+'px'; pip.style.top=y+'px'; pip.style.right='auto';
+    fitPrompter();
+  }
   function settlePip(){
     if(prompter.hidden) return;
     const r=pip.getBoundingClientRect(), band=prompter.getBoundingClientRect();
     if(r.top<band.bottom-20&&r.bottom>band.top){
-      const space=Math.max(r.left,innerWidth-r.right);
-      if(space<innerWidth*0.5){ place(r.left,band.bottom+8); }
+      if(Math.max(r.left,innerWidth-r.right)<innerWidth*0.5) place(r.left,band.bottom+8);
     }
   }
-
-  function place(x,y){
-    const w=pip.offsetWidth, h=pip.offsetHeight;
-    x=Math.max(4,Math.min(innerWidth-w-4,x)); y=Math.max(4,Math.min(innerHeight-h-4,y));
-    pip.style.left=x+'px'; pip.style.top=y+'px'; pip.style.right='auto';
-    fitPrompter();
-  }
-  function savePip(){
-    const r=pip.getBoundingClientRect();
-    store.set('pip',{fx:r.left/innerWidth,fy:r.top/innerHeight});
-  }
-  function restorePip(){
-    const p=store.get('pip',null);
-    if(p) requestAnimationFrame(()=>place(p.fx*innerWidth,p.fy*innerHeight));
-  }
+  function savePip(){ const r=pip.getBoundingClientRect(); store.set('pip',{fx:r.left/innerWidth,fy:r.top/innerHeight}); }
+  function restorePip(){ const p=store.get('pip',null); if(p) requestAnimationFrame(()=>place(p.fx*innerWidth,p.fy*innerHeight)); }
   function clampPip(){ if(pip.style.left){ const r=pip.getBoundingClientRect(); place(r.left,r.top); } }
 
   if(store.get('big',false)){ pip.classList.add('big'); $('sizeBtn').textContent='缩小画面'; }
   $('sizeBtn').onclick=()=>{ const big=pip.classList.toggle('big'); $('sizeBtn').textContent=big?'缩小画面':'放大画面'; store.set('big',big); setTimeout(()=>{ clampPip(); fitPrompter(); },220); };
-  if(store.get('mirror',true)===false){ pip.classList.add('nomirror'); $('mirrorBtn').textContent='镜像 关'; }
-  $('mirrorBtn').onclick=()=>{ const off=pip.classList.toggle('nomirror'); $('mirrorBtn').textContent=off?'镜像 关':'镜像 开'; store.set('mirror',!off); };
 
-  /* ---------- 相机开关 ---------- */
+  function swap(force){
+    const want=force!==undefined?force:!S.swapped;
+    if(want&&!stream) return;
+    S.swapped=want;
+    document.body.classList.toggle('swapped',want);
+    full.hidden=!want;
+    renderPrompter();
+    if(want){ show(null); hint('点画面对焦测光 · 上下拖动调曝光 · 双击小窗切回',2600); }
+    else { focusEl.classList.remove('show'); }
+    haptic(); layoutView();
+  }
+
+  /* ================= 相机开关 ================= */
   function camUI(){
     const on=!!stream;
-    pip.hidden=!on; $('recBtn').hidden=!on;
+    pip.hidden=!on; $('bottom').hidden=!on;
     $('camBtn').textContent=on?'关闭画面':'打开画面';
-    ['sizeBtn','mirrorBtn'].forEach(id=>$(id).disabled=!on);
-    ['sizeBtn','mirrorBtn'].forEach(id=>$(id).style.opacity=on?1:.4);
+    $('sizeBtn').disabled=!on; $('sizeBtn').style.opacity=on?1:.4;
+    if(!on&&S.swapped) swap(false);
+    setEV(S.ev,true);
     fitPrompter(); syncPanelH();
   }
   async function startCam(){
@@ -388,16 +577,20 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
       try{ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:true}); }
       catch(e2){ stream=null; err.textContent='没拿到相机或麦克风权限。去系统设置里允许浏览器使用相机和麦克风，然后刷新再试。'; err.hidden=false; return false; }
     }
+    track=stream.getVideoTracks()[0];
+    caps={}; try{ caps=track.getCapabilities?track.getCapabilities():{}; }catch(e){}
+    hwEV=(caps.exposureCompensation&&caps.exposureCompensation.max>caps.exposureCompensation.min)?caps.exposureCompensation:null;
     cam.srcObject=stream;
     try{ await cam.play(); }catch(e){}
     store.set('lastMode','cam');
     camUI(); restorePip();
+    if(!raf) raf=requestAnimationFrame(loop);
     return true;
   }
   function stopCam(){
     if(recorder&&recorder.state==='recording'){ hint('先停止录制'); return; }
     if(stream) stream.getTracks().forEach(t=>t.stop());
-    stream=null; cam.srcObject=null; store.set('lastMode','light'); camUI(); hint('只用灯模式');
+    stream=null; track=null; cam.srcObject=null; store.set('lastMode','light'); camUI(); hint('只用灯模式');
   }
   $('camBtn').onclick=async()=>{ if(stream) stopCam(); else { const ok=await startCam(); if(!ok) hint('没拿到相机权限'); } };
 
@@ -405,14 +598,166 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   document.addEventListener('visibilitychange',async()=>{
     if(document.visibilityState!=='visible') return;
     keepAwake();
-    // 切回来时如果系统把相机断了，自动重新接上
     if(stream&&stream.getVideoTracks().some(t=>t.readyState==='ended')){ stream=null; await startCam(); }
   });
 
   $('goBtn').onclick=async()=>{ if(await startCam()){ $('start').hidden=true; keepAwake(); syncPanelH(); } };
   $('lightOnlyBtn').onclick=()=>{ store.set('lastMode','light'); $('start').hidden=true; keepAwake(); camUI(); };
 
-  // 用过一次以后，打开直接进上次的模式，不再停在开始页
+  /* ================= 提词器 ================= */
+  const prompter=$('prompter'), pText=$('prompterText'), pInput=$('promptInput'), pTouch=$('pTouch');
+  const SAMPLE='这是提词器的示例文字\n点下面的「提词器」按钮\n把这里换成你自己的稿子\n\n字幕会贴着前置摄像头往上滚\n读稿的时候眼睛就自然看着镜头\n\n手指按住字幕上下拖可以调位置\n点一下字幕暂停或继续';
+  pInput.value=store.get('script',SAMPLE);
+  $('pSpeed').value=store.get('pSpeed',35); $('pSize').value=store.get('pSize',28);
+  $('pShow').checked=store.get('pShow',false); $('pAuto').checked=store.get('pAuto',true);
+  let pOffset=0, pPlaying=false, pLast=0, pt=null;
+
+  function renderPrompter(){
+    pText.textContent=pInput.value;
+    pText.style.fontSize=$('pSize').value+'px';
+    $('psOut').textContent=$('pSpeed').value; $('pzOut').textContent=$('pSize').value;
+    const want=$('pShow').checked&&pInput.value.trim()!=='';
+    prompter.hidden=!want||S.swapped;
+    $('promptBtn').classList.toggle('on',want);
+    updState(); fitPrompter();
+  }
+  function updState(){
+    $('pState').hidden=prompter.hidden||pPlaying||pOffset===0;
+    $('pPlay').textContent=pPlaying?'暂停':'开始滚动';
+  }
+  function fitPrompter(){
+    if(prompter.hidden) return;
+    prompter.style.paddingLeft=prompter.style.paddingRight='';
+    if(pip.hidden||S.swapped) return;
+    const r=pip.getBoundingClientRect(), band=prompter.getBoundingClientRect();
+    if(r.top<band.bottom-20&&r.bottom>band.top){
+      if(r.left>=innerWidth-r.right) prompter.style.paddingRight=(innerWidth-r.left+8)+'px';
+      else prompter.style.paddingLeft=(r.right+8)+'px';
+    }
+  }
+  const pMax=()=>Math.max(0,pText.scrollHeight-prompter.clientHeight*0.4);
+  const pApply=()=>{ pText.style.transform=`translateY(${-pOffset}px)`; };
+  function tick(ts){
+    if(!pPlaying) return;
+    if(pt&&pt.moved){ pLast=ts; requestAnimationFrame(tick); return; }
+    const dt=pLast?(ts-pLast)/1000:0; pLast=ts;
+    pOffset+=(+$('pSpeed').value)*dt;
+    if(pOffset>=pMax()){ pOffset=pMax(); setPlay(false); }
+    pApply();
+    requestAnimationFrame(tick);
+  }
+  function setPlay(on){ pPlaying=on; pLast=0; if(on) requestAnimationFrame(tick); updState(); }
+  function resetPrompter(){ setPlay(false); pOffset=0; pApply(); updState(); }
+
+  function pStart(y){ pt={y0:y,off0:pOffset,moved:false}; }
+  function pMove(y){
+    if(!pt) return;
+    const d=y-pt.y0;
+    if(Math.abs(d)>6) pt.moved=true;
+    if(!pt.moved) return;
+    pOffset=clamp(pt.off0-d,0,pMax()); pApply();
+  }
+  function pEnd(){
+    if(!pt) return;
+    const moved=pt.moved; pt=null;
+    if(!moved) setPlay(!pPlaying); else updState();
+  }
+  pTouch.addEventListener('touchstart',e=>{ e.preventDefault(); pStart(e.touches[0].clientY); },{passive:false});
+  pTouch.addEventListener('touchmove',e=>{ e.preventDefault(); pMove(e.touches[0].clientY); },{passive:false});
+  pTouch.addEventListener('touchend',e=>{ e.preventDefault(); pEnd(); },{passive:false});
+  pTouch.addEventListener('touchcancel',pEnd);
+  pTouch.addEventListener('mousedown',e=>{
+    pStart(e.clientY);
+    const mm=ev=>pMove(ev.clientY);
+    const mu=()=>{ pEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
+    addEventListener('mousemove',mm); addEventListener('mouseup',mu);
+  });
+
+  $('promptBtn').onclick=()=>{ if(!$('pShow').checked){ $('pShow').checked=true; store.set('pShow',true); renderPrompter(); } show(pSheet); };
+  $('promptDone').onclick=()=>show(panel);
+  pInput.addEventListener('input',()=>{ store.set('script',pInput.value); renderPrompter(); });
+  $('pSpeed').addEventListener('input',()=>{ store.set('pSpeed',+$('pSpeed').value); renderPrompter(); });
+  $('pSize').addEventListener('input',()=>{ store.set('pSize',+$('pSize').value); renderPrompter(); });
+  $('pShow').addEventListener('change',()=>{ store.set('pShow',$('pShow').checked); renderPrompter(); });
+  $('pAuto').addEventListener('change',()=>store.set('pAuto',$('pAuto').checked));
+  $('pReset').onclick=resetPrompter;
+  $('pPlay').onclick=()=>{ if(!pPlaying&&pOffset>=pMax()-1) resetPrompter(); setPlay(!pPlaying); if(pPlaying) show(null); };
+
+  /* ================= 照片 / 视频 ================= */
+  function setShoot(m){
+    S.shoot=m; store.set('shoot',m);
+    document.querySelectorAll('#modeSw button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+    $('shutter').classList.toggle('photo',m==='photo');
+  }
+  $('modeSw').addEventListener('click',e=>{ const m=e.target.dataset&&e.target.dataset.m; if(m) setShoot(m); });
+  setShoot(store.get('shoot','video'));
+
+  const stamp=()=>new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+  function openReview(blob,name,isPhoto){
+    lastBlob=blob; lastName=name;
+    if(lastUrl) URL.revokeObjectURL(lastUrl);
+    lastUrl=URL.createObjectURL(blob);
+    $('playback').hidden=isPhoto; $('photoView').hidden=!isPhoto;
+    if(isPhoto) $('photoView').src=lastUrl; else $('playback').src=lastUrl;
+    $('review').hidden=false;
+  }
+  function takePhoto(){
+    if(!stream||!draw()) return;
+    const f=$('flash'); f.classList.add('on'); requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove('on')));
+    haptic();
+    view.toBlob(b=>{ if(b) openReview(b,'selfie-'+stamp()+'.jpg',true); else hint('拍照失败，再试一次'); },'image/jpeg',0.92);
+  }
+  function pickType(){
+    if(!window.MediaRecorder) return null;
+    const list=['video/mp4;codecs=avc1,mp4a','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+    for(const t of list){ if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t)) return t; }
+    return '';
+  }
+  const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  function recSource(){
+    // 录处理后的画面（带曝光调整），声音用麦克风
+    if(view.captureStream&&!hwEV){
+      try{ const vs=view.captureStream(30); return new MediaStream([...vs.getVideoTracks(),...stream.getAudioTracks()]); }catch(e){}
+    }
+    return stream;
+  }
+  function toggleRecord(){
+    if(recorder&&recorder.state==='recording'){ recorder.stop(); return; }
+    const type=pickType();
+    if(type===null){ hint('这个浏览器不支持录像'); return; }
+    chunks=[];
+    const src=recSource();
+    try{ recorder=new MediaRecorder(src,type?{mimeType:type,videoBitsPerSecond:10000000}:undefined); }
+    catch(e){ recorder=new MediaRecorder(src); }
+    const ext=(recorder.mimeType||type||'').includes('webm')?'webm':'mp4';
+    recorder.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    recorder.onstop=()=>{
+      clearInterval(timer); $('recBadge').hidden=true; $('shutter').classList.remove('on'); $('modeSw').hidden=false;
+      setPlay(false);
+      if(src!==stream) src.getVideoTracks().forEach(t=>t.stop());
+      openReview(new Blob(chunks,{type:recorder.mimeType||('video/'+ext)}),'selfie-'+stamp()+'.'+ext,false);
+    };
+    recorder.start(1000);
+    recStart=Date.now(); $('recTime').textContent='00:00'; $('recBadge').hidden=false;
+    $('shutter').classList.add('on'); $('modeSw').hidden=true;
+    timer=setInterval(()=>{ $('recTime').textContent=fmt(Math.floor((Date.now()-recStart)/1000)); },500);
+    show(null); haptic();
+    if(!prompter.hidden&&$('pAuto').checked){ resetPrompter(); setPlay(true); }
+  }
+  $('shutter').onclick=()=>{ if(!stream) return; if(S.shoot==='photo') takePhoto(); else toggleRecord(); };
+
+  $('shareBtn').onclick=async()=>{
+    if(!lastBlob) return;
+    const file=new File([lastBlob],lastName,{type:lastBlob.type});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file]}); }catch(e){} }
+    else { const a=document.createElement('a'); a.href=lastUrl; a.download=lastName; document.body.appendChild(a); a.click(); a.remove(); }
+  };
+  $('discardBtn').onclick=()=>{ $('review').hidden=true; $('playback').pause(); resetPrompter(); };
+
+  /* ================= 启动 ================= */
+  setMode(S.mode);
+  renderPrompter();
+  syncPanelH();
   (async()=>{
     const last=store.get('lastMode',null);
     if(last==='light'){ $('start').hidden=true; keepAwake(); camUI(); return; }
@@ -423,140 +768,6 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
       if(!(await startCam())) $('start').hidden=false;
     }
   })();
-
-  /* ---------- 提词器 ---------- */
-  const prompter=$('prompter'), pText=$('prompterText'), pInput=$('promptInput');
-  const SAMPLE='这是提词器的示例文字\n点下面的「提词器」按钮\n把这里换成你自己的稿子\n\n字幕会贴着前置摄像头往上滚\n读稿的时候眼睛就自然看着镜头\n\n点一下字幕可以暂停或继续';
-  pInput.value=store.get('script',SAMPLE);
-  $('pSpeed').value=store.get('pSpeed',35); $('pSize').value=store.get('pSize',28);
-  $('pShow').checked=store.get('pShow',false); $('pAuto').checked=store.get('pAuto',true);
-  let pOffset=0, pPlaying=false, pLast=0;
-
-  function renderPrompter(){
-    pText.textContent=pInput.value;
-    pText.style.fontSize=$('pSize').value+'px';
-    $('psOut').textContent=$('pSpeed').value; $('pzOut').textContent=$('pSize').value;
-    const showIt=$('pShow').checked&&pInput.value.trim()!=='';
-    prompter.hidden=!showIt;
-    $('promptBtn').classList.toggle('on',showIt);
-    updState(); fitPrompter();
-  }
-  function updState(){
-    const s=$('pState');
-    s.hidden=prompter.hidden||pPlaying||pOffset===0;
-    $('pPlay').textContent=pPlaying?'暂停':'开始滚动';
-  }
-  function fitPrompter(){
-    if(prompter.hidden) return;
-    prompter.style.paddingLeft=prompter.style.paddingRight='';
-    if(pip.hidden) return;
-    const r=pip.getBoundingClientRect(), band=prompter.getBoundingClientRect();
-    if(r.top<band.bottom-20&&r.bottom>band.top){
-      // 字幕放到画面旁边空间大的那一边
-      if(r.left>=innerWidth-r.right) prompter.style.paddingRight=(innerWidth-r.left+8)+'px';
-      else prompter.style.paddingLeft=(r.right+8)+'px';
-    }
-  }
-  const pMax=()=>Math.max(0,pText.scrollHeight-prompter.clientHeight*0.4);
-  function tick(ts){
-    if(!pPlaying) return;
-    if(pt&&pt.moved){ pLast=ts; requestAnimationFrame(tick); return; }  // 手在拖的时候不自动走
-    const dt=pLast?(ts-pLast)/1000:0; pLast=ts;
-    pOffset+=(+$('pSpeed').value)*dt;
-    if(pOffset>=pMax()){ pOffset=pMax(); setPlay(false); }
-    pText.style.transform=`translateY(${-pOffset}px)`;
-    requestAnimationFrame(tick);
-  }
-  // 手指上下拖动字幕
-  let pt=null;
-  function pStart(y){ pt={y0:y,off0:pOffset,moved:false}; }
-  function pMove(y){
-    if(!pt) return;
-    const d=y-pt.y0;
-    if(Math.abs(d)>6) pt.moved=true;
-    if(!pt.moved) return;
-    pOffset=Math.max(0,Math.min(pMax(),pt.off0-d));
-    pText.style.transform=`translateY(${-pOffset}px)`;
-  }
-  function pEnd(){
-    if(!pt) return;
-    const moved=pt.moved; pt=null;
-    if(!moved) setPlay(!pPlaying); else updState();
-  }
-  function setPlay(on){
-    pPlaying=on; pLast=0;
-    if(on) requestAnimationFrame(tick);
-    updState();
-  }
-  function resetPrompter(){ setPlay(false); pOffset=0; pText.style.transform='translateY(0)'; updState(); }
-
-  $('promptBtn').onclick=()=>{ if(!$('pShow').checked){ $('pShow').checked=true; store.set('pShow',true); renderPrompter(); } show(pSheet); };
-  $('promptDone').onclick=()=>show(panel);
-  pInput.addEventListener('input',()=>{ store.set('script',pInput.value); renderPrompter(); });
-  $('pSpeed').addEventListener('input',()=>{ store.set('pSpeed',+$('pSpeed').value); renderPrompter(); });
-  $('pSize').addEventListener('input',()=>{ store.set('pSize',+$('pSize').value); renderPrompter(); });
-  $('pShow').addEventListener('change',()=>{ store.set('pShow',$('pShow').checked); renderPrompter(); });
-  $('pAuto').addEventListener('change',()=>store.set('pAuto',$('pAuto').checked));
-  $('pReset').onclick=resetPrompter;
-  $('pPlay').onclick=()=>{ if(!pPlaying&&pOffset>=pText.scrollHeight-prompter.clientHeight*0.4-1) resetPrompter(); setPlay(!pPlaying); if(pPlaying) show(null); };
-  prompter.addEventListener('touchstart',e=>{ e.preventDefault(); pStart(e.touches[0].clientY); },{passive:false});
-  prompter.addEventListener('touchmove',e=>{ e.preventDefault(); pMove(e.touches[0].clientY); },{passive:false});
-  prompter.addEventListener('touchend',pEnd);
-  prompter.addEventListener('touchcancel',pEnd);
-  prompter.addEventListener('mousedown',e=>{
-    pStart(e.clientY);
-    const mm=ev=>pMove(ev.clientY);
-    const mu=()=>{ pEnd(); removeEventListener('mousemove',mm); removeEventListener('mouseup',mu); };
-    addEventListener('mousemove',mm); addEventListener('mouseup',mu);
-  });
-  renderPrompter();
-
-  /* ---------- 录制 ---------- */
-  function pickType(){
-    if(!window.MediaRecorder) return null;
-    const list=['video/mp4;codecs=avc1,mp4a','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
-    for(const t of list){ if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t)) return t; }
-    return '';
-  }
-  const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
-
-  $('recBtn').onclick=()=>{
-    if(!stream) return;
-    if(recorder&&recorder.state==='recording'){ recorder.stop(); return; }
-    const type=pickType();
-    if(type===null){ hint('这个浏览器不支持录像'); return; }
-    chunks=[];
-    try{ recorder=new MediaRecorder(stream,type?{mimeType:type,videoBitsPerSecond:8000000}:undefined); }
-    catch(e){ recorder=new MediaRecorder(stream); }
-    lastExt=(recorder.mimeType||type||'').includes('webm')?'webm':'mp4';
-    recorder.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
-    recorder.onstop=()=>{
-      clearInterval(timer); $('recBadge').hidden=true; $('recBtn').classList.remove('on');
-      setPlay(false);
-      lastBlob=new Blob(chunks,{type:recorder.mimeType||('video/'+lastExt)});
-      if(lastUrl) URL.revokeObjectURL(lastUrl);
-      lastUrl=URL.createObjectURL(lastBlob);
-      const name='selfie-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.'+lastExt;
-      $('playback').src=lastUrl; $('dlLink').href=lastUrl; $('dlLink').download=name; $('dlLink').dataset.name=name;
-      $('review').hidden=false;
-    };
-    recorder.start(1000);
-    recStart=Date.now(); $('recTime').textContent='00:00'; $('recBadge').hidden=false; $('recBtn').classList.add('on');
-    timer=setInterval(()=>{ $('recTime').textContent=fmt(Math.floor((Date.now()-recStart)/1000)); },500);
-    show(null);
-    if(!prompter.hidden&&$('pAuto').checked){ resetPrompter(); setPlay(true); }
-  };
-
-  $('shareBtn').onclick=async()=>{
-    if(!lastBlob) return;
-    const file=new File([lastBlob],$('dlLink').dataset.name,{type:lastBlob.type});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file]}); }catch(e){} }
-    else $('dlLink').click();
-  };
-  $('discardBtn').onclick=()=>{ $('review').hidden=true; $('playback').pause(); resetPrompter(); };
-
-  setMode(mode);
-  syncPanelH();
 })();
 </script>
 </body>
