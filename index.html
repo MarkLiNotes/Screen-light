@@ -89,6 +89,14 @@ body.sheet-open #bottom{bottom:calc(env(safe-area-inset-bottom,0px) + var(--pane
 #modeSw{display:flex;gap:2px;background:rgba(0,0,0,.45);border-radius:99px;padding:3px}
 #modeSw button{font-size:13px;padding:5px 14px;border-radius:99px;color:rgba(255,255,255,.75)}
 #modeSw button.on{background:rgba(255,255,255,.92);color:#000;font-weight:600}
+#shotRow{display:grid;grid-template-columns:56px 70px 56px;gap:44px;align-items:center;justify-items:center}
+#tray{position:relative;width:52px;height:52px;border-radius:10px;overflow:visible;padding:0;
+  border:2px solid rgba(255,255,255,.9);box-shadow:0 2px 10px rgba(0,0,0,.3);background:#222}
+#tray img{width:100%;height:100%;object-fit:cover;border-radius:8px;display:block}
+#tray b{position:absolute;top:-8px;right:-8px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;
+  background:var(--rec);color:#fff;font-size:12px;line-height:20px;text-align:center;font-variant-numeric:tabular-nums}
+#tray.pop{animation:pop .3s}
+@keyframes pop{40%{transform:scale(1.15)}}
 #shutter{width:70px;height:70px;border-radius:50%;border:4px solid rgba(0,0,0,.55);background:rgba(255,255,255,.35);
   display:grid;place-items:center}
 #shutter span{width:46px;height:46px;border-radius:50%;background:var(--rec);transition:all .2s}
@@ -152,6 +160,43 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 #lightOnlyBtn{padding:10px 20px;border-radius:99px;color:var(--fg);border:1px solid var(--line);font-size:14px;min-width:200px}
 #err{color:#ff8a80;margin:14px auto 0;font-size:13px;max-width:34ch}
 
+/* 引导页 */
+#intro{position:fixed;inset:0;z-index:22;background:#0d0d0e;display:flex;flex-direction:column;
+  padding:calc(env(safe-area-inset-top,0px) + 12px) 0 calc(env(safe-area-inset-bottom,0px) + 18px)}
+#introSkip{align-self:flex-end;margin-right:max(16px,env(safe-area-inset-right,0px));padding:6px 4px;color:var(--dim);font-size:14px}
+#slides{flex:1;min-height:0;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;touch-action:pan-x}
+#slides::-webkit-scrollbar{display:none}
+.slide{flex:0 0 100%;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  padding:0 max(28px,env(safe-area-inset-left,0px)) 0 max(28px,env(safe-area-inset-right,0px));text-align:center}
+.slide h2{font-size:26px;margin:0;letter-spacing:.02em;text-wrap:balance}
+.slide p{margin:0;color:var(--dim);font-size:15px;line-height:1.6;max-width:30ch}
+.slide .tip{font-size:13px;color:var(--accent)}
+.ph{width:140px;height:280px;border-radius:26px;border:3px solid #3a3a3d;position:relative;overflow:hidden;flex:none;
+  background:#fff4e6;box-shadow:0 0 56px rgba(255,226,180,.4)}
+.ph .p{position:absolute;top:14px;right:12px;width:38px;height:52px;border-radius:7px;background:#2c2c2e}
+.ph .p::after{content:"";position:absolute;left:50%;top:40%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#55555a}
+.ph.s2 .p{right:auto;left:12px;top:70px;animation:slideP 3.2s ease-in-out infinite}
+@keyframes slideP{0%,15%{left:88px;top:14px}45%,100%{left:12px;top:70px}}
+.ph .ring{position:absolute;left:31px;top:96px;width:0;height:0}
+.ph .ring::before,.ph .ring::after{content:"";position:absolute;left:-18px;top:-18px;width:36px;height:36px;border-radius:50%;
+  border:2px solid var(--accent);opacity:0;animation:tapR 3.2s infinite}
+.ph .ring::after{animation-delay:.25s}
+@keyframes tapR{0%,55%{opacity:0;transform:scale(.4)}62%{opacity:1;transform:scale(.6)}80%{opacity:0;transform:scale(1.3)}100%{opacity:0}}
+.ph .lines{position:absolute;left:14px;right:58px;top:18px;display:grid;gap:7px}
+.ph .lines i{display:block;height:7px;border-radius:4px;background:rgba(0,0,0,.6)}
+.ph .lines i:nth-child(2){width:82%;margin:auto}.ph .lines i:nth-child(3){width:64%;margin:auto;opacity:.45}
+.ph .sh{position:absolute;left:50%;bottom:16px;width:34px;height:34px;margin-left:-17px;border-radius:50%;border:3px solid rgba(0,0,0,.45);background:#fff}
+.ph .sh::after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--rec)}
+.ph .th{position:absolute;left:18px;bottom:20px;width:24px;height:24px;border-radius:5px;background:#2c2c2e;border:2px solid #fff}
+.ph .th::after{content:"2";position:absolute;top:-8px;right:-8px;width:14px;height:14px;border-radius:50%;background:var(--rec);color:#fff;font-size:9px;line-height:14px}
+#dots{display:flex;justify-content:center;gap:8px;margin:6px 0 18px}
+#dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.25);transition:background .2s,width .2s}
+#dots i.on{background:#fff;width:20px;border-radius:4px}
+#introActs{display:grid;gap:10px;justify-items:center;padding:0 24px}
+#introNext,#introCam{padding:14px 34px;border-radius:99px;background:#fff;color:#000;font-weight:600;font-size:16px;min-width:220px}
+#introLight{padding:10px 20px;border-radius:99px;color:var(--fg);border:1px solid var(--line);font-size:14px;min-width:220px}
+.ver button{color:var(--accent);font-size:11px;padding:2px 4px}
+
 /* 拍完预览 */
 #review{position:fixed;inset:0;z-index:15;background:rgba(0,0,0,.94);display:flex;flex-direction:column;
   padding:calc(env(safe-area-inset-top,0px) + 16px) max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 16px) max(16px,env(safe-area-inset-left,0px));gap:12px}
@@ -188,7 +233,11 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     <button data-m="video" class="on">视频</button>
     <button data-m="photo">照片</button>
   </div>
-  <button id="shutter" aria-label="拍摄"><span></span></button>
+  <div id="shotRow">
+    <button id="tray" aria-label="存到相册" hidden><img id="trayImg" alt=""><b id="trayN">1</b></button>
+    <button id="shutter" aria-label="拍摄"><span></span></button>
+    <div></div>
+  </div>
 </div>
 <div id="flash"></div>
 
@@ -225,7 +274,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     <button id="camBtn">关闭画面</button>
     <button id="hideBtn">隐藏面板</button>
   </div>
-  <div class="ver">双击小窗切换全屏画面 · v4</div>
+  <div class="ver"><button id="helpBtn">使用说明</button> · v6</div>
 </div>
 
 <!-- 提词器设置 -->
@@ -245,12 +294,32 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 <div id="hint"></div>
 <label id="hapticLbl"><input type="checkbox" switch id="hapticSw"></label>
 
-<div id="review" hidden>
-  <video id="playback" playsinline controls hidden></video>
-  <img id="photoView" alt="刚拍的照片" hidden>
-  <div class="acts">
-    <button id="discardBtn">删除</button>
-    <button id="shareBtn" class="primary">保存 / 分享</button>
+
+<div id="intro" hidden>
+  <button id="introSkip">跳过</button>
+  <div id="slides">
+    <section class="slide">
+      <div class="ph"><div class="p"></div></div>
+      <h2>屏幕就是补光灯</h2>
+      <p>整个屏幕发光照亮你的脸，自己的画面缩在小窗里。点屏幕打开面板，调色温、RGB 和亮度。</p>
+      <p class="tip">记得先把手机亮度拉到最高</p>
+    </section>
+    <section class="slide">
+      <div class="ph s2"><div class="p"></div><div class="ring"></div></div>
+      <h2>小窗随便摆</h2>
+      <p>按住小窗拖到任何位置，放在摄像头旁边眼神更自然。双击小窗切到全屏画面，点脸测光，上下拖动调曝光，再双击小灯切回来。</p>
+    </section>
+    <section class="slide">
+      <div class="ph"><div class="lines"><i></i><i></i><i></i></div><div class="p"></div><div class="th"></div><div class="sh"></div></div>
+      <h2>提词和拍摄</h2>
+      <p>提词器的字贴着镜头往上滚，手指上下拖可以调位置，点一下暂停。快门上面切换照片和视频，拍好的在左下角，点一下存到相册。</p>
+    </section>
+  </div>
+  <div id="dots"><i class="on"></i><i></i><i></i></div>
+  <div id="introActs">
+    <button id="introNext">下一步</button>
+    <button id="introCam" hidden>打开相机</button>
+    <button id="introLight" hidden>只用灯</button>
   </div>
 </div>
 
@@ -693,19 +762,46 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   setShoot(store.get('shoot','video'));
 
   const stamp=()=>new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
-  function openReview(blob,name,isPhoto){
-    lastBlob=blob; lastName=name;
-    if(lastUrl) URL.revokeObjectURL(lastUrl);
-    lastUrl=URL.createObjectURL(blob);
-    $('playback').hidden=isPhoto; $('photoView').hidden=!isPhoto;
-    if(isPhoto) $('photoView').src=lastUrl; else $('playback').src=lastUrl;
-    $('review').hidden=false;
+  // 拍好的照片和视频先放在左下角，点一下一次全部存到相册
+  const tray=[];
+  const thumbC=document.createElement('canvas'); thumbC.width=104; thumbC.height=104;
+  function snapThumb(){
+    try{
+      const t=thumbC.getContext('2d'), vw=view.width, vh=view.height, s=Math.min(vw,vh);
+      t.save(); t.translate(104,0); t.scale(-1,1);
+      t.drawImage(view,(vw-s)/2,(vh-s)/2,s,s,0,0,104,104); t.restore();
+      return thumbC.toDataURL('image/jpeg',0.7);
+    }catch(e){ return ''; }
   }
+  function updateTray(){
+    $('tray').hidden=tray.length===0;
+    $('trayN').textContent=tray.length;
+  }
+  function addShot(blob,name,thumb){
+    tray.push(new File([blob],name,{type:blob.type}));
+    if(thumb) $('trayImg').src=thumb;
+    updateTray();
+    const tr=$('tray'); tr.classList.remove('pop'); void tr.offsetWidth; tr.classList.add('pop');
+    if(!store.get('trayTip',false)){ hint('拍好了 · 点左下角缩略图存到相册',2600); store.set('trayTip',true); }
+  }
+  async function saveAll(){
+    if(!tray.length) return;
+    const files=tray.slice();
+    if(navigator.canShare&&navigator.canShare({files})){
+      try{ await navigator.share({files}); tray.splice(0,files.length); updateTray(); hint('已存好'); }
+      catch(e){ if(e&&e.name!=='AbortError') hint('没存成功，再点一次试试'); }
+    } else {
+      files.forEach(f=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); });
+      tray.splice(0,files.length); updateTray();
+    }
+  }
+  $('tray').onclick=saveAll;
   function takePhoto(){
     if(!stream||!draw()) return;
     const f=$('flash'); f.classList.add('on'); requestAnimationFrame(()=>requestAnimationFrame(()=>f.classList.remove('on')));
     haptic();
-    view.toBlob(b=>{ if(b) openReview(b,'selfie-'+stamp()+'.jpg',true); else hint('拍照失败，再试一次'); },'image/jpeg',0.92);
+    const thumb=snapThumb();
+    view.toBlob(b=>{ if(b) addShot(b,'selfie-'+stamp()+'.jpg',thumb); else hint('拍照失败，再试一次'); },'image/jpeg',0.92);
   }
   function pickType(){
     if(!window.MediaRecorder) return null;
@@ -735,7 +831,8 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
       clearInterval(timer); $('recBadge').hidden=true; $('shutter').classList.remove('on'); $('modeSw').hidden=false;
       setPlay(false);
       if(src!==stream) src.getVideoTracks().forEach(t=>t.stop());
-      openReview(new Blob(chunks,{type:recorder.mimeType||('video/'+ext)}),'selfie-'+stamp()+'.'+ext,false);
+      resetPrompter();
+      addShot(new Blob(chunks,{type:recorder.mimeType||('video/'+ext)}),'selfie-'+stamp()+'.'+ext,snapThumb());
     };
     recorder.start(1000);
     recStart=Date.now(); $('recTime').textContent='00:00'; $('recBadge').hidden=false;
@@ -746,19 +843,38 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   }
   $('shutter').onclick=()=>{ if(!stream) return; if(S.shoot==='photo') takePhoto(); else toggleRecord(); };
 
-  $('shareBtn').onclick=async()=>{
-    if(!lastBlob) return;
-    const file=new File([lastBlob],lastName,{type:lastBlob.type});
-    if(navigator.canShare&&navigator.canShare({files:[file]})){ try{ await navigator.share({files:[file]}); }catch(e){} }
-    else { const a=document.createElement('a'); a.href=lastUrl; a.download=lastName; document.body.appendChild(a); a.click(); a.remove(); }
-  };
-  $('discardBtn').onclick=()=>{ $('review').hidden=true; $('playback').pause(); resetPrompter(); };
 
   /* ================= 启动 ================= */
   setMode(S.mode);
   renderPrompter();
   syncPanelH();
+  /* ================= 引导页 ================= */
+  const intro=$('intro'), slides=$('slides'), dots=[...document.querySelectorAll('#dots i')];
+  let slideIdx=0;
+  function setSlide(i){
+    slideIdx=i;
+    dots.forEach((d,k)=>d.classList.toggle('on',k===i));
+    const last=i===dots.length-1;
+    $('introNext').hidden=last;
+    $('introCam').hidden=!last||!!stream;
+    $('introLight').hidden=!last;
+    $('introLight').textContent=stream?'开始使用':'只用灯';
+  }
+  slides.addEventListener('scroll',()=>{
+    const i=Math.round(slides.scrollLeft/slides.clientWidth);
+    if(i!==slideIdx) setSlide(clamp(i,0,dots.length-1));
+  },{passive:true});
+  const goSlide=i=>slides.scrollTo({left:i*slides.clientWidth,behavior:'smooth'});
+  $('introNext').onclick=()=>goSlide(slideIdx+1);
+  function closeIntro(){ intro.hidden=true; store.set('introSeen',true); }
+  function openIntro(){ intro.hidden=false; slides.scrollLeft=0; setSlide(0); }
+  $('introSkip').onclick=()=>{ if(stream){ closeIntro(); return; } goSlide(dots.length-1); };
+  $('introCam').onclick=async()=>{ closeIntro(); $('start').hidden=true; keepAwake(); if(!(await startCam())) $('start').hidden=false; syncPanelH(); };
+  $('introLight').onclick=()=>{ closeIntro(); if(!stream){ store.set('lastMode','light'); $('start').hidden=true; keepAwake(); camUI(); } };
+  $('helpBtn').onclick=openIntro;
+
   (async()=>{
+    if(!store.get('introSeen',false)){ openIntro(); return; }
     const last=store.get('lastMode',null);
     if(last==='light'){ $('start').hidden=true; keepAwake(); camUI(); return; }
     let granted=false;
