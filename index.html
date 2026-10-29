@@ -131,7 +131,30 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 #tint{--track:linear-gradient(90deg,#e46ce0,#fff,#6cd97a)}
 #hue{--track:linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)}
 #sat{--track:linear-gradient(90deg,#fff,var(--hueColor,#f00))}
-.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+#recipeChip{font-size:12px;padding:5px 12px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;max-width:70vw;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#recipeChip.on{color:var(--accent)}
+.rsScroll{max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:10px;touch-action:pan-y;-webkit-overflow-scrolling:touch;
+  margin:0 -4px;padding:0 4px 4px}
+.rsScroll>*{flex:none}
+#slotPick{display:flex;flex-direction:column;gap:8px}
+.rsLabel{font-size:12px;color:var(--dim);letter-spacing:.04em;margin-top:4px}
+.rsLabel span{opacity:.7;margin-left:4px}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;touch-action:pan-x;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chips button{flex:none;padding:7px 12px;border-radius:99px;border:1px solid var(--line);font-size:13px;white-space:nowrap}
+.chips button.on{border-color:var(--accent);color:var(--accent);background:rgba(255,195,90,.12)}
+.chips button.empty{color:var(--dim);border-style:dashed}
+.chips button small{opacity:.6;margin-right:4px;font-size:11px}
+.lvRow{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:10px;font-size:13px;color:var(--dim)}
+.lv{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:var(--chip);border-radius:9px;padding:3px}
+.lv button{padding:6px 0;border-radius:7px;font-size:13px;color:var(--dim)}
+.lv button.on{background:rgba(255,255,255,.9);color:#000;font-weight:600}
+#rsName,#rsImport{width:100%;border-radius:10px;border:1px solid var(--line);background:rgba(0,0,0,.35);color:var(--fg);
+  font:14px/1.4 inherit;padding:9px 11px;-webkit-user-select:text;user-select:text}
+#rsImport{height:84px;resize:none}
+.wide{padding:10px 0;border-radius:10px;background:var(--chip);font-size:14px;width:100%}
 .tools button{padding:9px 0;border-radius:10px;background:var(--chip);font-size:13px;white-space:nowrap}
 .tools button.on{background:rgba(255,195,90,.22);color:var(--accent)}
 .ver{font-size:11px;color:var(--dim);text-align:center;margin-top:-4px}
@@ -261,6 +284,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 
 <div id="bottom" hidden>
   <button id="evChip" hidden>☀ 0.0 · 点一下归零</button>
+  <button id="recipeChip">原色</button>
   <div id="modeSw">
     <button data-m="video" class="on">视频</button>
     <button data-m="photo">照片</button>
@@ -302,11 +326,49 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 
   <div class="tools">
     <button id="promptBtn">提词器</button>
+    <button id="recipeBtn">调色</button>
     <button id="sizeBtn">放大画面</button>
     <button id="camBtn">关闭画面</button>
     <button id="hideBtn">隐藏面板</button>
   </div>
-  <div class="ver"><button id="helpBtn">使用说明</button> · v8</div>
+  <div class="ver"><button id="helpBtn">使用说明</button> · v9</div>
+</div>
+
+<!-- 调色配方 -->
+<div id="recipeSheet" class="sheet">
+  <div class="sheetHead"><b>调色配方</b><button id="recipeDone">完成</button></div>
+  <div class="rsScroll">
+    <div class="rsLabel">官方预设</div>
+    <div class="chips" id="presetChips"></div>
+    <div class="rsLabel">我的配方 <span>C1 到 C7</span></div>
+    <div class="chips" id="slotChips"></div>
+
+    <div class="rsLabel">调整 <span id="rsState"></span></div>
+    <div class="chips" id="baseChips"></div>
+    <div class="row"><label for="rHi">高光</label><input id="rHi" type="range" min="-2" max="4" step="0.5" value="0"><output id="rHiO">0</output></div>
+    <div class="row"><label for="rSh">阴影</label><input id="rSh" type="range" min="-2" max="4" step="0.5" value="0"><output id="rShO">0</output></div>
+    <div class="row"><label for="rCol">色彩</label><input id="rCol" type="range" min="-4" max="4" step="1" value="0"><output id="rColO">0</output></div>
+    <div class="row"><label for="rWR">红偏移</label><input id="rWR" type="range" min="-9" max="9" step="1" value="0"><output id="rWRO">0</output></div>
+    <div class="row"><label for="rWB">蓝偏移</label><input id="rWB" type="range" min="-9" max="9" step="1" value="0"><output id="rWBO">0</output></div>
+    <div class="lvRow"><span>色彩效果</span><div class="lv" data-k="cc"></div></div>
+    <div class="lvRow"><span>FX 蓝</span><div class="lv" data-k="cb"></div></div>
+    <div class="lvRow"><span>颗粒</span><div class="lv" data-k="gr"></div></div>
+    <div class="lvRow"><span>颗粒大小</span><div class="lv" data-k="gs"></div></div>
+
+    <div class="btnRow">
+      <button id="rsSave">存到我的配方</button>
+      <button id="rsShare">复制分享文字</button>
+    </div>
+    <div id="slotPick" hidden>
+      <div class="rsLabel">存到哪一格</div>
+      <input id="rsName" type="text" maxlength="20" placeholder="给配方起个名字">
+      <div class="chips" id="pickChips"></div>
+    </div>
+
+    <div class="rsLabel">导入配方</div>
+    <textarea id="rsImport" placeholder="粘贴别人分享的配方文字，或者网上的富士配方（中英文都可以）"></textarea>
+    <button id="rsImportBtn" class="wide">导入并预览</button>
+  </div>
 </div>
 
 <!-- 提词器设置 -->
@@ -468,23 +530,99 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     document.body.classList.toggle('sheet-open',!!open);
     if(open) document.body.style.setProperty('--panelH',open.offsetHeight+'px');
   }
-  function show(sheet){ [panel,pSheet].forEach(s=>s.classList.toggle('open',s===sheet)); openSheet=sheet; syncPanelH(); }
+  function show(sheet){ [panel,pSheet,$('recipeSheet')].forEach(s=>s.classList.toggle('open',s===sheet)); openSheet=sheet; syncPanelH(); }
   $('hideBtn').onclick=()=>{ show(null); hint('点屏幕任意处打开面板'); };
   light.addEventListener('click',()=>{ if(!S.swapped) show(openSheet?null:panel); });
   window.addEventListener('resize',()=>{ syncPanelH(); clampPip(); fitPrompter(); });
 
   /* ================= 画面处理（曝光） ================= */
-  let gl=null, ctx2d=null, glTex=null, uGain=null;
+  let gl=null, ctx2d=null, glTex=null, uGain=null; const U={};
+
+  /* ================= 调色配方 ================= */
+  // 底色风格（我们自己的名字，导入时会把富士的胶片模拟名字对应过来）
+  const BASES={
+    std:   {name:'标准',  sat:1,   con:1,    fade:0,   st:[0,0,0],         ht:[0,0,0],         mono:0, mt:[1,1,1],        green:0},
+    vivid: {name:'鲜艳',  sat:1.32,con:1.1,  fade:0,   st:[0,0,.01],       ht:[.01,.005,0],    mono:0, mt:[1,1,1],        green:.05},
+    soft:  {name:'柔和',  sat:.92, con:.92,  fade:.01, st:[.006,0,.012],   ht:[.02,.01,0],     mono:0, mt:[1,1,1],        green:0},
+    chrome:{name:'复古',  sat:.72, con:1.08, fade:.02, st:[-.02,0,.016],   ht:[.03,.015,-.01], mono:0, mt:[1,1,1],        green:-.15},
+    neg:   {name:'负片感',sat:.86, con:.95,  fade:.045,st:[-.015,.01,.022],ht:[.04,.005,-.005],mono:0, mt:[1,1,1],        green:-.25},
+    cine:  {name:'电影',  sat:.68, con:.88,  fade:.03, st:[-.02,.006,.02], ht:[.015,.01,-.006],mono:0, mt:[1,1,1],        green:-.05},
+    mono:  {name:'黑白',  sat:1,   con:1.08, fade:0,   st:[0,0,0],         ht:[0,0,0],         mono:1, mt:[1,1,1],        green:0},
+    sepia: {name:'棕调',  sat:1,   con:1.02, fade:.02, st:[0,0,0],         ht:[0,0,0],         mono:1, mt:[1.08,1,.84],   green:0}
+  };
+  const BASE_KEYS=Object.keys(BASES);
+  const LV=['关','弱','强'];
+  const blank=()=>({name:'我的配方',base:'std',hi:0,sh:0,col:0,wbR:0,wbB:0,cc:0,cb:0,gr:0,gs:1});
+  // 官方预设：先放 7 个临时的，之后换成正式版
+  const PRESETS=[
+    {name:'清透人像',base:'soft',  hi:-1,sh:-1,col:1, wbR:1, wbB:-1,cc:0,cb:0,gr:0,gs:1},
+    {name:'街头复古',base:'chrome',hi:0, sh:1, col:-1,wbR:2, wbB:-3,cc:2,cb:1,gr:1,gs:1},
+    {name:'日系胶片',base:'neg',   hi:-1,sh:-1,col:2, wbR:0, wbB:-2,cc:1,cb:0,gr:1,gs:1},
+    {name:'暖阳',    base:'std',   hi:0, sh:0, col:2, wbR:4, wbB:-5,cc:1,cb:0,gr:0,gs:1},
+    {name:'冷调电影',base:'cine',  hi:-1,sh:1, col:-2,wbR:-2,wbB:2, cc:0,cb:1,gr:1,gs:1},
+    {name:'鲜艳旅拍',base:'vivid', hi:0, sh:1, col:2, wbR:0, wbB:0, cc:2,cb:2,gr:0,gs:1},
+    {name:'经典黑白',base:'mono',  hi:1, sh:2, col:0, wbR:0, wbB:0, cc:0,cb:0,gr:2,gs:2}
+  ];
+  const R={on:false, cur:blank(), src:null, dirty:false};   // src: {k:'p'|'s', i}
+  let slots=(store.get('slots',null)||[]).slice(0,7); while(slots.length<7) slots.push(null);
+  (function(){ const r=store.get('recipe',null); if(r&&r.cur){ R.on=!!r.on; R.cur=Object.assign(blank(),r.cur); R.src=r.src||null; R.dirty=!!r.dirty; } })();
+  function saveRecipeState(){ store.set('recipe',{on:R.on,cur:R.cur,src:R.src,dirty:R.dirty}); }
+  function setUniforms(){
+    if(!gl) return;
+    const r=R.cur, b=BASES[r.base]||BASES.std;
+    gl.uniform1f(U.uOn,R.on?1:0);
+    gl.uniform1f(U.uSat,b.sat); gl.uniform1f(U.uCon,b.con); gl.uniform1f(U.uFade,b.fade);
+    gl.uniform1f(U.uHi,r.hi); gl.uniform1f(U.uSh,r.sh); gl.uniform1f(U.uCol,r.col);
+    gl.uniform1f(U.uWR,r.wbR); gl.uniform1f(U.uWB,r.wbB);
+    gl.uniform1f(U.uCC,r.cc); gl.uniform1f(U.uCB,r.cb);
+    gl.uniform1f(U.uGr,r.gr*.5+(r.gr>1?.25:0)); gl.uniform1f(U.uGs,r.gs===2?2.:1.);
+    gl.uniform1f(U.uMono,b.mono); gl.uniform1f(U.uGreen,b.green); gl.uniform1f(U.uTime,(performance.now()%10000)/10000);
+    gl.uniform3fv(U.uST,b.st); gl.uniform3fv(U.uHT,b.ht); gl.uniform3fv(U.uMT,b.mt);
+  }
   (function initGL(){
     try{
       gl=view.getContext('webgl',{preserveDrawingBuffer:true,premultipliedAlpha:false,antialias:false});
     }catch(e){ gl=null; }
     if(!gl){ ctx2d=view.getContext('2d'); return; }
     const vs='attribute vec2 p;varying vec2 uv;void main(){uv=vec2((p.x+1.)*.5,1.-(p.y+1.)*.5);gl_Position=vec4(p,0.,1.);}';
-    const fs='precision mediump float;uniform sampler2D t;uniform float g;varying vec2 uv;'+
-      'void main(){vec3 c=texture2D(t,uv).rgb;vec3 l=pow(c,vec3(2.2))*g;'+
-      'vec3 s=.82+.18*(1.-exp(-(l-.82)/.18));l=mix(l,s,step(.82,l));'+
-      'gl_FragColor=vec4(pow(clamp(l,0.,1.),vec3(1./2.2)),1.);}';
+    const fs=`#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D t;uniform float g;varying vec2 uv;
+uniform float uOn,uSat,uCon,uFade,uHi,uSh,uCol,uWR,uWB,uCC,uCB,uGr,uGs,uMono,uGreen,uTime;
+uniform vec3 uST,uHT,uMT;
+float hash(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+void main(){
+  vec3 c=texture2D(t,uv).rgb;
+  vec3 l=pow(c,vec3(2.2))*g;
+  vec3 s=.82+.18*(1.-exp(-(l-.82)/.18));l=mix(l,s,step(.82,l));
+  c=pow(clamp(l,0.,1.),vec3(1./2.2));
+  if(uOn>.5){
+    c.r*=1.+.022*uWR; c.b*=1.+.022*uWB;
+    float L=dot(c,vec3(.299,.587,.114));
+    float hw=smoothstep(.35,1.,L), sw=1.-smoothstep(0.,.65,L);
+    float L2=L+.05*uHi*hw*(1.-L)*1.6-.05*uSh*sw*L*1.6;
+    c*=L>.001?L2/L:1.;
+    c=(c-.5)*uCon+.5;
+    L=dot(c,vec3(.299,.587,.114));
+    c=mix(vec3(L),c,uSat*(1.+.09*uCol));
+    c.r+=uGreen*max(0.,c.g-max(c.r,c.b));
+    float mx=max(c.r,max(c.g,c.b)),mn=min(c.r,min(c.g,c.b)),ch=mx-mn;
+    c*=1.-uCC*.16*ch*smoothstep(.1,.6,ch);
+    float bl=max(0.,c.b-max(c.r,c.g));
+    c*=1.-uCB*.3*bl; c.b+=uCB*.06*bl;
+    L=dot(clamp(c,0.,1.),vec3(.299,.587,.114));
+    c+=uST*(1.-L)*(1.-L)+uHT*L*L;
+    float m=dot(c,vec3(.3,.59,.11));
+    c=mix(c,m*uMT,uMono);
+    c=uFade+c*(1.-uFade);
+    float n=hash(floor(gl_FragCoord.xy/uGs)+fract(uTime)*91.7)-.5;
+    c+=n*uGr*.07*(1.-abs(L-.5)*1.1);
+  }
+  gl_FragColor=vec4(clamp(c,0.,1.),1.);
+}`;
     const sh=(type,src)=>{ const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s); return s; };
     const pr=gl.createProgram();
     gl.attachShader(pr,sh(gl.VERTEX_SHADER,vs)); gl.attachShader(pr,sh(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(pr);
@@ -497,6 +635,8 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     [gl.TEXTURE_WRAP_S,gl.TEXTURE_WRAP_T].forEach(p=>gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE));
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
     uGain=gl.getUniformLocation(pr,'g');
+    'uOn uSat uCon uFade uHi uSh uCol uWR uWB uCC uCB uGr uGs uMono uGreen uTime uST uHT uMT'.split(' ')
+      .forEach(n=>U[n]=gl.getUniformLocation(pr,n));
   })();
   const gain=()=>hwEV?1:Math.pow(2,S.ev);
 
@@ -508,6 +648,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
       gl.bindTexture(gl.TEXTURE_2D,glTex);
       gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,cam);
       gl.uniform1f(uGain,gain());
+      setUniforms();
       gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
     } else {
       if('filter' in ctx2d) ctx2d.filter=`brightness(${gain()})`;
@@ -805,6 +946,161 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   $('pAuto').addEventListener('change',()=>store.set('pAuto',$('pAuto').checked));
   $('pReset').onclick=resetPrompter;
   $('pPlay').onclick=()=>{ if(!pPlaying&&pOffset>=pMax()-1) resetPrompter(); setPlay(!pPlaying); if(pPlaying) show(null); };
+
+  /* ================= 调色配方界面 ================= */
+  const rs=$('recipeSheet');
+  const sliders={hi:$('rHi'),sh:$('rSh'),col:$('rCol'),wbR:$('rWR'),wbB:$('rWB')};
+  const sgn=v=>(v>0?'+':'')+v;
+  function curLabel(){
+    if(!R.on) return '原色';
+    let n=R.cur.name||'配方';
+    if(R.src&&R.src.k==='s') n='C'+(R.src.i+1)+' '+n;
+    return n+(R.dirty?' · 已改':'');
+  }
+  function renderRecipe(){
+    const r=R.cur;
+    // 官方预设
+    const pc=$('presetChips'); pc.textContent='';
+    const off=document.createElement('button'); off.textContent='原色'; off.classList.toggle('on',!R.on);
+    off.onclick=()=>{ R.on=false; R.src=null; R.dirty=false; afterChange(); };
+    pc.appendChild(off);
+    PRESETS.forEach((p,i)=>{
+      const b=document.createElement('button'); b.textContent=p.name;
+      b.classList.toggle('on',R.on&&R.src&&R.src.k==='p'&&R.src.i===i);
+      b.onclick=()=>loadRecipe(p,{k:'p',i});
+      pc.appendChild(b);
+    });
+    // 我的配方
+    const sc=$('slotChips'); sc.textContent='';
+    slots.forEach((s,i)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<small>C${i+1}</small>`; b.appendChild(document.createTextNode(s?s.name:'空'));
+      if(!s) b.classList.add('empty');
+      b.classList.toggle('on',!!(R.on&&R.src&&R.src.k==='s'&&R.src.i===i));
+      b.onclick=()=>{ if(s) loadRecipe(s,{k:'s',i}); else hint('先调好，再点「存到我的配方」存进这一格'); };
+      sc.appendChild(b);
+    });
+    // 底色
+    const bc=$('baseChips'); bc.textContent='';
+    BASE_KEYS.forEach(k=>{
+      const b=document.createElement('button'); b.textContent=BASES[k].name;
+      b.classList.toggle('on',R.on&&r.base===k);
+      b.onclick=()=>edit('base',k);
+      bc.appendChild(b);
+    });
+    // 滑杆
+    Object.entries(sliders).forEach(([k,el])=>{ el.value=r[k]; $(el.id+'O').textContent=r[k]===0?'0':sgn(r[k]); el.style.opacity=R.on?1:.5; });
+    // 档位
+    document.querySelectorAll('.lv').forEach(box=>{
+      const k=box.dataset.k; box.textContent='';
+      const opts=k==='gs'?[[1,'小'],[2,'大']]:LV.map((n,v)=>[v,n]);
+      opts.forEach(([v,n])=>{
+        const b=document.createElement('button'); b.textContent=n; b.classList.toggle('on',r[k]===v);
+        b.onclick=()=>edit(k,v); box.appendChild(b);
+      });
+    });
+    $('rsState').textContent=R.on?(R.dirty?'· 已修改，记得存':''):'· 先选一个配方或底色';
+    const chip=$('recipeChip'); chip.textContent='🎞 '+curLabel(); chip.classList.toggle('on',R.on);
+    $('recipeBtn').classList.toggle('on',R.on);
+  }
+  function afterChange(){ saveRecipeState(); renderRecipe(); }
+  function loadRecipe(p,src){ R.cur=Object.assign(blank(),JSON.parse(JSON.stringify(p))); R.on=true; R.src=src; R.dirty=false; afterChange(); }
+  function edit(k,v){
+    if(!R.on){ R.on=true; R.src=null; }
+    R.cur[k]=v; R.dirty=true; afterChange();
+  }
+  Object.entries(sliders).forEach(([k,el])=>el.addEventListener('input',()=>edit(k,+el.value)));
+  $('recipeBtn').onclick=()=>{ $('slotPick').hidden=true; renderRecipe(); show(rs); };
+  $('recipeChip').onclick=()=>{ $('slotPick').hidden=true; renderRecipe(); show(rs); };
+  $('recipeDone').onclick=()=>show(panel);
+
+  // 存到 C1 到 C7
+  $('rsSave').onclick=()=>{
+    if(!R.on){ hint('先选一个配方或者调一下再存'); return; }
+    const pick=$('slotPick'); pick.hidden=!pick.hidden;
+    $('rsName').value=R.cur.name||'';
+    const pc=$('pickChips'); pc.textContent='';
+    slots.forEach((s,i)=>{
+      const b=document.createElement('button');
+      b.innerHTML=`<small>C${i+1}</small>`; b.appendChild(document.createTextNode(s?s.name+' (覆盖)':'空'));
+      b.onclick=()=>{
+        const name=($('rsName').value||'').trim()||('我的配方 '+(i+1));
+        R.cur.name=name; slots[i]=JSON.parse(JSON.stringify(R.cur));
+        store.set('slots',slots); R.src={k:'s',i}; R.dirty=false;
+        pick.hidden=true; afterChange(); hint('已存到 C'+(i+1)); haptic();
+      };
+      pc.appendChild(b);
+    });
+    syncPanelH();
+  };
+
+  // 分享文字：人能看懂，也能被导入
+  function recipeText(r){
+    const lvl=v=>LV[v]||'关';
+    return [
+      `【Screen Light+ 配方】${r.name||'我的配方'}`,
+      `底色：${(BASES[r.base]||BASES.std).name}`,
+      `高光：${sgn(r.hi)}`,
+      `阴影：${sgn(r.sh)}`,
+      `色彩：${sgn(r.col)}`,
+      `白平衡偏移：${sgn(r.wbR)}红 ${sgn(r.wbB)}蓝`,
+      `色彩效果：${lvl(r.cc)}`,
+      `FX蓝：${lvl(r.cb)}`,
+      `颗粒：${lvl(r.gr)}，${r.gs===2?'大':'小'}`
+    ].join('\n');
+  }
+  $('rsShare').onclick=async()=>{
+    if(!R.on){ hint('先选一个配方'); return; }
+    const txt=recipeText(R.cur);
+    try{ await navigator.clipboard.writeText(txt); hint('已复制，可以粘贴到小红书或发给朋友'); }
+    catch(e){ const ta=$('rsImport'); ta.value=txt; ta.focus(); ta.select(); hint('已放到下面的框里，长按复制'); }
+  };
+
+  // 导入：我们的分享文字，或网上的富士配方（中英文）
+  function parseRecipe(txt){
+    if(!txt||!txt.trim()) return null;
+    const T=txt.replace(/[−–—]/g,'-').replace(/：/g,':').replace(/，/g,',');
+    const r=blank(); let hits=0;
+    const num=re=>{ const m=T.match(re); if(m){ hits++; return parseFloat(m[1]); } return null; };
+    const lvl=s=>{ s=(s||'').toLowerCase(); if(/strong|强/.test(s)) return 2; if(/weak|弱/.test(s)) return 1; return 0; };
+    // 名字
+    const nm=T.match(/【[^】]*】\s*(.+)/)||T.match(/^\s*([^\n:]{1,24})\s*\n/);
+    if(nm) r.name=nm[1].trim().slice(0,20);
+    // 底色
+    const bm=T.match(/(?:film simulation|simulation|胶片模拟|胶片模式|底色)\s*:\s*([^\n]+)/i);
+    if(bm){
+      hits++; const s=bm[1].toLowerCase();
+      r.base=/sepia|棕|褐/.test(s)?'sepia':/acros|monochrome|黑白|单色/.test(s)?'mono':/pro ?neg/.test(s)?'soft':
+        /classic neg|nostalgic|负片/.test(s)?'neg':/chrome|经典正片|复古/.test(s)?'chrome':/velvia|鲜艳|vivid/.test(s)?'vivid':
+        /astia|柔和|soft/.test(s)?'soft':/eterna|bleach|电影|影院|cinema/.test(s)?'cine':'std';
+    }
+    let v;
+    if((v=num(/(?:highlights?|高光)(?:\s*tone)?\s*:\s*([+-]?\d+(?:\.\d+)?)/i))!=null) r.hi=clamp(Math.round(v*2)/2,-2,4);
+    if((v=num(/(?:shadows?|阴影)(?:\s*tone)?\s*:\s*([+-]?\d+(?:\.\d+)?)/i))!=null) r.sh=clamp(Math.round(v*2)/2,-2,4);
+    if((v=num(/(?:^|\n)\s*(?:colou?r|色彩|色彩浓度|饱和度)\s*:\s*([+-]?\d+)/i))!=null) r.col=clamp(Math.round(v),-4,4);
+    // 白平衡偏移
+    const wl=(T.match(/(?:white balance|wb shift|白平衡)[^\n]*(?:\n[^\n:]*(?:red|blue|红|蓝)[^\n]*)?/i)||[''])[0];
+    if(wl){
+      const rr=wl.match(/([+-]?\d+)\s*(?:red|红|r\b)/i)||wl.match(/\bR\s*:?\s*([+-]?\d+)/);
+      const bb=wl.match(/([+-]?\d+)\s*(?:blue|蓝|b\b)/i)||wl.match(/\bB\s*:?\s*([+-]?\d+)/);
+      if(rr){ r.wbR=clamp(+rr[1],-9,9); hits++; }
+      if(bb){ r.wbB=clamp(+bb[1],-9,9); hits++; }
+    }
+    const fxb=T.match(/(?:fx\s*blue|color chrome fx blue|fx\s*蓝|色彩fx蓝)\s*:\s*([^\n]+)/i);
+    if(fxb){ r.cb=lvl(fxb[1]); hits++; }
+    const cce=T.match(/(?:color chrome effect|色彩效果|彩色效果)\s*:\s*([^\n]+)/i);
+    if(cce){ r.cc=lvl(cce[1]); hits++; }
+    const gr=T.match(/(?:grain(?:\s*effect)?|颗粒(?:效果)?)\s*:\s*([^\n]+)/i);
+    if(gr){ r.gr=lvl(gr[1]); r.gs=/large|大/i.test(gr[1])?2:1; hits++; }
+    return hits>=2?r:null;
+  }
+  $('rsImportBtn').onclick=()=>{
+    const r=parseRecipe($('rsImport').value);
+    if(!r){ hint('没认出配方，检查一下有没有高光、阴影、色彩这些项目'); return; }
+    R.cur=r; R.on=true; R.src=null; R.dirty=true; afterChange();
+    $('rsImport').value=''; hint('已导入「'+r.name+'」，满意的话存到我的配方'); haptic();
+  };
+  renderRecipe();
 
   /* ================= 照片 / 视频 ================= */
   function setShoot(m){
