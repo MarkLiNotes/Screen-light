@@ -219,6 +219,12 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 #vStage img,#vStage video{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .vBar{display:grid;grid-template-columns:1fr 1fr;gap:10px;
   padding:12px max(16px,env(safe-area-inset-right,0px)) calc(env(safe-area-inset-bottom,0px) + 14px) max(16px,env(safe-area-inset-left,0px))}
+.vBar.one{grid-template-columns:1fr}
+.vBar button:disabled{opacity:.35}
+#gGrid .ck{position:absolute;right:7px;bottom:7px;width:24px;height:24px;border-radius:50%;
+  border:2px solid #fff;background:rgba(0,0,0,.25);display:grid;place-items:center;font-size:14px;color:#fff;line-height:1}
+#gGrid button.on img{opacity:.6}
+#gGrid button.on .ck{background:#0a84ff;border-color:#fff}
 .vBar button{padding:13px 0;border-radius:12px;background:rgba(255,255,255,.12);font-size:15px}
 .vBar .primary{background:#fff;color:#000;font-weight:600}
 .vBar .danger{color:#ff6b61}
@@ -300,7 +306,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     <button id="camBtn">关闭画面</button>
     <button id="hideBtn">隐藏面板</button>
   </div>
-  <div class="ver"><button id="helpBtn">使用说明</button> · v7</div>
+  <div class="ver"><button id="helpBtn">使用说明</button> · v8</div>
 </div>
 
 <!-- 提词器设置 -->
@@ -322,10 +328,15 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
 
 
 <div id="gallery" hidden>
-  <div class="gHead"><button class="l" id="gClose">关闭</button><b>相册</b><button class="r" id="gSaveAll">全部存到相册</button></div>
+  <div class="gHead"><button class="l" id="gClose">关闭</button><b id="gTitle">相册</b><button class="r" id="gSel">选择</button></div>
   <div class="gNote" id="gNote">红点是还没存到 iPhone 相册的</div>
   <div id="gGrid"></div>
   <div id="gEmpty" hidden>还没有拍东西<br>拍好的照片和视频会出现在这里</div>
+  <div class="vBar one" id="gBarAll"><button id="gSaveAll" class="primary">把没存的都存到相册</button></div>
+  <div class="vBar" id="gBarSel" hidden>
+    <button id="gDel" class="danger">删除</button>
+    <button id="gSave" class="primary">存到相册</button>
+  </div>
 </div>
 
 <div id="viewer" hidden>
@@ -384,7 +395,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   const $=id=>document.getElementById(id);
   const root=document.documentElement;
   const light=$('light'), cam=$('cam'), pip=$('pip'), full=$('full'), view=$('view');
-  const panel=$('panel'), pSheet=$('promptSheet');
+  const panel=$('panel'), pSheet=$('promptSheet'), galleryEl=$('gallery');
   const kelvin=$('kelvin'), tint=$('tint'), level=$('level'), hue=$('hue'), sat=$('sat');
   const S={swapped:false, ev:0, shoot:'video', mode:'cct'};
   let stream=null, track=null, caps={}, hwEV=null, hwPOI=false;
@@ -517,6 +528,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   function loop(){
     if(!stream){ raf=0; return; }
     raf=requestAnimationFrame(loop);
+    if(!galleryEl.hidden&&!(recorder&&recorder.state==='recording')) return;  // 看相册时暂停画面处理，省电
     if(draw()) layoutView();
   }
 
@@ -806,13 +818,8 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
   const stamp=()=>new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
   // 拍好的照片和视频先放在左下角，点一下一次全部存到相册
   const tray=[];
-  const thumbC=document.createElement('canvas'); thumbC.width=104; thumbC.height=104;
   function snapThumb(){
-    try{
-      const t=thumbC.getContext('2d'), vw=view.width, vh=view.height, s=Math.min(vw,vh);
-      t.drawImage(view,(vw-s)/2,(vh-s)/2,s,s,0,0,104,104);
-      return thumbC.toDataURL('image/jpeg',0.7);
-    }catch(e){ return ''; }
+    try{ return cropToThumb(view,view.width,view.height); }catch(e){ return ''; }
   }
   /* ---------- 本地相册（存在手机里，关掉 app 也在） ---------- */
   const DB={
@@ -851,7 +858,7 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     $('trayN').hidden=n===0; $('trayN').textContent=n;
   }
   function addShot(blob,name,thumb){
-    const rec={id:Date.now()+'-'+Math.random().toString(36).slice(2,7),name,type:blob.type,blob,thumb,saved:false,ts:Date.now()};
+    const rec={id:Date.now()+'-'+Math.random().toString(36).slice(2,7),name,type:blob.type,blob,thumb,hq:true,saved:false,ts:Date.now()};
     shots.unshift(rec); DB.put(rec);
     updateTray();
     const tr=$('tray'); tr.classList.remove('pop'); void tr.offsetWidth; tr.classList.add('pop');
@@ -871,27 +878,92 @@ input[type=range]::-moz-range-thumb{width:24px;height:24px;border:0;border-radiu
     return true;
   }
 
-  // 相册网格
+  // 相册网格（普通模式点开看大图，选择模式可以多选）
+  let selMode=false; const sel=new Set(); let gDelArm=0;
   function renderGallery(){
     const g=$('gGrid'); g.textContent='';
     $('gEmpty').hidden=shots.length>0; g.hidden=shots.length===0;
     const n=unsaved().length;
-    $('gSaveAll').textContent=n?`全部存到相册 (${n})`:'';
-    $('gSaveAll').disabled=!n;
-    $('gNote').hidden=!n;
+    $('gSel').hidden=shots.length===0;
+    $('gSel').textContent=selMode?(sel.size===shots.length?'取消全选':'全选'):'选择';
+    $('gClose').textContent=selMode?'取消':'关闭';
+    $('gTitle').textContent=selMode?(sel.size?`已选 ${sel.size} 项`:'选择项目'):'相册';
+    $('gNote').hidden=selMode||!n;
+    $('gBarAll').hidden=selMode||!n;
+    $('gSaveAll').textContent=`把没存的都存到相册 (${n})`;
+    $('gBarSel').hidden=!selMode;
+    $('gDel').disabled=$('gSave').disabled=sel.size===0;
+    if(!gDelArm) $('gDel').textContent=sel.size?`删除 (${sel.size})`:'删除';
+    $('gSave').textContent=sel.size?`存到相册 (${sel.size})`:'存到相册';
     shots.forEach((s,i)=>{
       const b=document.createElement('button');
-      const im=document.createElement('img'); im.src=s.thumb||''; im.alt=''; b.appendChild(im);
+      const im=document.createElement('img'); im.src=s.thumb||''; im.alt=''; im.loading='lazy'; b.appendChild(im);
       if((s.type||'').startsWith('video')){ const v=document.createElement('span'); v.className='vid'; v.textContent='▶ 视频'; b.appendChild(v); }
-      if(!s.saved){ const d=document.createElement('i'); d.className='new'; b.appendChild(d); }
-      b.onclick=()=>openViewer(i);
+      if(selMode){
+        const c=document.createElement('span'); c.className='ck'; c.textContent=sel.has(s.id)?'✓':''; b.appendChild(c);
+        b.classList.toggle('on',sel.has(s.id));
+        b.onclick=()=>{ sel.has(s.id)?sel.delete(s.id):sel.add(s.id); disarmDel(); renderGallery(); };
+      } else {
+        if(!s.saved){ const d=document.createElement('i'); d.className='new'; b.appendChild(d); }
+        b.onclick=()=>openViewer(i);
+      }
       g.appendChild(b);
     });
   }
-  function openGallery(){ renderGallery(); $('gallery').hidden=false; }
+  function disarmDel(){ if(gDelArm){ clearTimeout(gDelArm); gDelArm=0; } }
+  function setSelMode(on){ selMode=on; sel.clear(); disarmDel(); renderGallery(); }
+  function openGallery(){ setSelMode(false); $('gallery').hidden=false; upgradeThumbs(); }
   $('tray').onclick=openGallery;
-  $('gClose').onclick=()=>{ $('gallery').hidden=true; };
+  $('gClose').onclick=()=>{ if(selMode) setSelMode(false); else $('gallery').hidden=true; };
+  $('gSel').onclick=()=>{
+    if(!selMode){ setSelMode(true); return; }
+    if(sel.size===shots.length) sel.clear(); else shots.forEach(s=>sel.add(s.id));
+    disarmDel(); renderGallery();
+  };
   $('gSaveAll').onclick=()=>shareShots(unsaved());
+  $('gSave').onclick=async()=>{ if(await shareShots(shots.filter(s=>sel.has(s.id)))) setSelMode(false); };
+  $('gDel').onclick=()=>{
+    if(!sel.size) return;
+    if(!gDelArm){ gDelArm=setTimeout(()=>{ gDelArm=0; renderGallery(); },3000); $('gDel').textContent=`再点一次删除 ${sel.size} 项`; return; }
+    disarmDel();
+    shots.filter(s=>sel.has(s.id)).forEach(s=>DB.del(s.id));
+    shots=shots.filter(s=>!sel.has(s.id));
+    updateTray(); setSelMode(false); hint('已删除');
+  };
+
+  // 把旧的低清缩略图重新生成成高清的
+  const THUMB=360;
+  function cropToThumb(src,w,h){
+    const c=document.createElement('canvas'); c.width=c.height=THUMB;
+    const s=Math.min(w,h); c.getContext('2d').drawImage(src,(w-s)/2,(h-s)/2,s,s,0,0,THUMB,THUMB);
+    return c.toDataURL('image/jpeg',0.82);
+  }
+  function makeThumb(s){
+    return new Promise(res=>{
+      const url=URL.createObjectURL(s.blob); const done=v=>{ URL.revokeObjectURL(url); res(v); };
+      if((s.type||'').startsWith('video')){
+        const v=document.createElement('video'); v.muted=true; v.playsInline=true; v.preload='auto';
+        v.onloadeddata=()=>{ try{ v.currentTime=Math.min(0.2,(v.duration||1)/2); }catch(e){ done(null); } };
+        v.onseeked=()=>{ try{ done(cropToThumb(v,v.videoWidth,v.videoHeight)); }catch(e){ done(null); } };
+        v.onerror=()=>done(null); setTimeout(()=>done(null),4000);
+        v.src=url;
+      } else {
+        const im=new Image();
+        im.onload=()=>{ try{ done(cropToThumb(im,im.naturalWidth,im.naturalHeight)); }catch(e){ done(null); } };
+        im.onerror=()=>done(null); im.src=url;
+      }
+    });
+  }
+  let upgrading=false;
+  async function upgradeThumbs(){
+    if(upgrading) return; upgrading=true;
+    for(const s of shots.filter(x=>!x.hq)){
+      const t=await makeThumb(s);
+      if(t){ s.thumb=t; s.hq=true; DB.put(s); if(!$('gallery').hidden&&!selMode) renderGallery(); updateTray(); }
+      else { s.hq=true; }
+    }
+    upgrading=false;
+  }
 
   // 单张查看
   let vIdx=0, vUrl=null, delArm=0;
